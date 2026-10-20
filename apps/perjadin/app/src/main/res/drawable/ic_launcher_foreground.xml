@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon koper dinas + tanda centang (area aman 66dp di tengah) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,34h16a4,4 0 0 1 4,4v5h-4v-5h-16v5h-4v-5a4,4 0 0 1 4,-4z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M35,43h38a5,5 0 0 1 5,5v24a5,5 0 0 1 -5,5h-38a5,5 0 0 1 -5,-5v-24a5,5 0 0 1 5,-5z" />
+    <path
+        android:fillColor="#0F766E"
+        android:pathData="M50.5,68l-7.5,-7.5l3.2,-3.2l4.3,4.3l11.3,-11.3l3.2,3.2z" />
+</vector>
