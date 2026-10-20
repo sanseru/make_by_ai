@@ -9,10 +9,10 @@ yang bisa langsung dikirim ke WhatsApp / Email.
 | Fitur | Keterangan |
 |---|---|
 | Perjalanan per No. ODR | Keperluan, rute, tanggal, pelaksana, uang muka, status (Rencana → Dilaporkan) |
-| Anggaran | Plafon per kategori (7 kategori bawaan + **kategori buatan sendiri** dengan warna & ikon) + kalkulator jumlah × tarif |
-| Pengeluaran | Tanggal, kategori, nominal, metode bayar, no. struk/invoice, peringatan jika melebihi anggaran |
+| Anggaran & kategori | Plafon per kategori + kalkulator jumlah × tarif. Semua kategori (bawaan & buatan sendiri) bisa diubah nama/ikon/warna |
+| Pengeluaran | Tombol cepat di Beranda + form bottom sheet (nominal → kategori → simpan), "Simpan & Tambah Lagi", isi cepat dari riwayat, foto struk (kamera/galeri), peringatan jika melebihi anggaran |
 | Ringkasan | Anggaran vs realisasi per kategori, % serapan, sisa / kelebihan, settlement uang muka |
-| Laporan PDF (A4) | Kop perusahaan, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan |
+| Laporan PDF (A4) | Kop perusahaan, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan, lampiran foto struk |
 | Berbagi | Kirim via WhatsApp, Email (PDF terlampir + pesan pengantar), aplikasi lain, lihat, simpan file |
 | Onboarding & FAQ | Tutorial 5 langkah, data contoh, FAQ, placeholder berisi contoh input |
 | Data lokal | JSON di internal storage (AtomicFile), ekspor / impor backup |

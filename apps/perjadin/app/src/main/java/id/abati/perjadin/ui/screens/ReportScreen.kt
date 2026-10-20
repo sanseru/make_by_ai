@@ -94,6 +94,8 @@ fun ReportScreen(
     var includeExpenses by rememberSaveable { mutableStateOf(true) }
     var includeSignature by rememberSaveable { mutableStateOf(true) }
     var includeNotes by rememberSaveable { mutableStateOf(true) }
+    var includePhotos by rememberSaveable { mutableStateOf(true) }
+    val photoCount = trip.expenses.count { it.photo.isNotBlank() }
     var busy by remember { mutableStateOf(false) }
     var pendingSave by remember { mutableStateOf<File?>(null) }
     var lastShared by remember { mutableStateOf(false) }
@@ -131,7 +133,7 @@ fun ReportScreen(
                 val file = withContext(Dispatchers.Default) {
                     PdfReport.generate(
                         context, trip, profile, categories,
-                        PdfReport.Options(includeBudget, includeExpenses, includeSignature, includeNotes),
+                        PdfReport.Options(includeBudget, includeExpenses, includeSignature, includeNotes, includePhotos),
                     )
                 }
                 when (target) {
@@ -208,6 +210,11 @@ fun ReportScreen(
                 OptionSwitch("Rincian pengeluaran", "Tabel transaksi + no. bukti", includeExpenses) { includeExpenses = it }
                 OptionSwitch("Catatan perjalanan", "Tampilkan kolom catatan", includeNotes) { includeNotes = it }
                 OptionSwitch("Kolom tanda tangan", "Pelapor & atasan penyetuju", includeSignature) { includeSignature = it }
+                OptionSwitch(
+                    "Lampiran foto struk",
+                    if (photoCount > 0) "$photoCount foto, di halaman terpisah" else "Belum ada foto struk",
+                    includePhotos && photoCount > 0,
+                ) { includePhotos = it }
 
                 SectionTitle("Kirim / Simpan", subtitle = "PDF dibuat ulang setiap kali tombol ditekan, sesuai data terbaru")
                 Button(

@@ -1,6 +1,7 @@
 package id.abati.perjadin.report
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -11,6 +12,7 @@ import id.abati.perjadin.data.Profile
 import id.abati.perjadin.data.find
 import id.abati.perjadin.data.Trip
 import id.abati.perjadin.util.Fmt
+import id.abati.perjadin.util.ReceiptStore
 import java.io.File
 import java.io.FileOutputStream
 
@@ -26,6 +28,7 @@ object PdfReport {
         val includeExpenseDetails: Boolean = true,
         val includeSignature: Boolean = true,
         val includeNotes: Boolean = true,
+        val includePhotos: Boolean = true,
     )
 
     fun fileName(trip: Trip): String {
@@ -39,7 +42,7 @@ object PdfReport {
         val file = File(dir, fileName(trip))
         val doc = PdfDocument()
         try {
-            ReportLayout(doc, trip, profile, categories, options).render()
+            ReportLayout(doc, trip, profile, categories, options) { ReceiptStore.load(context, it, 900) }.render()
             FileOutputStream(file).use { doc.writeTo(it) }
         } finally {
             doc.close()
@@ -56,6 +59,7 @@ private class ReportLayout(
     private val profile: Profile,
     private val categories: List<Category>,
     private val opt: PdfReport.Options,
+    private val loadPhoto: (String) -> Bitmap?,
 ) {
     // A4 dalam point (1/72 inci)
     private val pageW = 595f
@@ -103,6 +107,7 @@ private class ReportLayout(
         if (opt.includeExpenseDetails) expenseDetails()
         if (opt.includeNotes && trip.notes.isNotBlank()) notes()
         if (opt.includeSignature) signatures()
+        if (opt.includePhotos) photos()
         finishPage()
     }
 
@@ -366,7 +371,8 @@ private class ReportLayout(
             aligns = listOf(Align.C, Align.L, Align.L, Align.L, Align.L, Align.R),
             rows = trip.expenses.mapIndexed { i, e ->
                 val desc = if (e.note.isBlank()) e.description else "${e.description}\n(${e.note})"
-                val pay = if (e.receiptNo.isBlank()) e.paymentMethod else "${e.paymentMethod}\n${e.receiptNo}"
+                var pay = if (e.receiptNo.isBlank()) e.paymentMethod else "${e.paymentMethod}\n${e.receiptNo}"
+                if (opt.includePhotos && e.photo.isNotBlank()) pay += "\n(foto terlampir)"
                 listOf("${i + 1}", Fmt.date(e.day), categories.find(e.categoryId).label, desc, pay, Fmt.rupiah(e.amount))
             },
             footer = listOf("", "", "", "TOTAL REALISASI", "", Fmt.rupiah(trip.totalActual)),
@@ -382,6 +388,48 @@ private class ReportLayout(
             y += lineH(body)
         }
         y += 12f
+    }
+
+    /** Lampiran foto struk: 2 kolom, setiap foto diberi keterangan nomor transaksi. */
+    private fun photos() {
+        val items = trip.expenses.withIndex().filter { it.value.photo.isNotBlank() }
+        if (items.isEmpty()) return
+        newPage()
+        sectionTitle("Lampiran Foto Bukti Pengeluaran")
+        val gap = 14f
+        val cellW = (contentW - gap) / 2
+        val maxImgH = 300f
+        for (pair in items.chunked(2)) {
+            // Muat & ukur foto dalam satu baris
+            val loaded = pair.map { iv -> iv to loadPhoto(iv.value.photo) }
+            val sizes = loaded.map { (_, bmp) ->
+                if (bmp == null) 0f to 40f
+                else {
+                    val scale = minOf(cellW / bmp.width, maxImgH / bmp.height)
+                    bmp.width * scale to bmp.height * scale
+                }
+            }
+            val captionH = 2 * lineH(small) + 4f
+            val rowH = captionH + sizes.maxOf { it.second } + gap
+            ensure(rowH)
+            loaded.forEachIndexed { col, (iv, bmp) ->
+                val x = margin + col * (cellW + gap)
+                val e = iv.value
+                val cap = wrap("No. ${iv.index + 1} · ${Fmt.date(e.day)} · ${Fmt.rupiah(e.amount)} · ${e.description}", small, cellW).take(2)
+                cap.forEachIndexed { li, line -> canvas.drawText(line, x, y + small.textSize + li * lineH(small), small) }
+                val top = y + captionH
+                if (bmp == null) {
+                    canvas.drawText("(foto tidak ditemukan)", x, top + 14f, small)
+                } else {
+                    val (w, h) = sizes[col]
+                    val rect = RectF(x, top, x + w, top + h)
+                    canvas.drawBitmap(bmp, null, rect, Paint(Paint.FILTER_BITMAP_FLAG))
+                    canvas.drawRect(rect, strokePaint)
+                    bmp.recycle()
+                }
+            }
+            y += rowH
+        }
     }
 
     private fun signatures() {

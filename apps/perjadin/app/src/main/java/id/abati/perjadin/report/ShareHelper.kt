@@ -61,6 +61,18 @@ object ShareHelper {
         }
     }
 
+    fun viewImage(context: Context, file: File) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uriOf(context, file), "image/jpeg")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, "Tidak ada aplikasi galeri untuk membuka foto", Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun view(context: Context, file: File) {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uriOf(context, file), MIME_PDF)

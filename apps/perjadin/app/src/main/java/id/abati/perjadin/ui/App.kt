@@ -18,7 +18,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import id.abati.perjadin.data.Repository
-import id.abati.perjadin.ui.screens.ExpenseEditScreen
 import id.abati.perjadin.ui.screens.FaqScreen
 import id.abati.perjadin.ui.screens.HomeScreen
 import id.abati.perjadin.ui.screens.OnboardingScreen
@@ -34,7 +33,6 @@ sealed interface Screen {
     data object Settings : Screen
     data class TripEdit(val tripId: String?) : Screen
     data class TripDetail(val tripId: String) : Screen
-    data class ExpenseEdit(val tripId: String, val expenseId: String?) : Screen
     data class Report(val tripId: String) : Screen
 }
 
@@ -56,6 +54,9 @@ class Navigator(start: Screen) {
 @Composable
 fun PerjadinApp(repo: Repository) {
     val data by repo.state.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Bersihkan foto struk yatim (mis. foto diambil lalu batal disimpan) sekali saat app dibuka
+    androidx.compose.runtime.LaunchedEffect(Unit) { repo.cleanupReceipts(id.abati.perjadin.util.ReceiptStore.dir(context)) }
     val nav = remember {
         Navigator(if (repo.state.value.onboardingDone) Screen.Home else Screen.Onboarding(firstRun = true))
     }
@@ -93,6 +94,8 @@ fun PerjadinApp(repo: Repository) {
                 onSettings = { nav.push(Screen.Settings) },
                 onTutorial = { nav.push(Screen.Onboarding(firstRun = false)) },
                 onLoadDemo = repo::loadDemo,
+                onSaveExpense = repo::upsertExpense,
+                onCreateCategory = repo::upsertCategory,
             )
 
             Screen.Faq -> FaqScreen(
@@ -129,33 +132,9 @@ fun PerjadinApp(repo: Repository) {
                         repo = repo,
                         onBack = nav::pop,
                         onEdit = { nav.push(Screen.TripEdit(trip.id)) },
-                        onAddExpense = { nav.push(Screen.ExpenseEdit(trip.id, null)) },
-                        onEditExpense = { nav.push(Screen.ExpenseEdit(trip.id, it)) },
+                        history = data.expenseHistory,
                         onReport = { nav.push(Screen.Report(trip.id)) },
                         onDeleted = nav::pop,
-                    )
-                }
-            }
-
-            is Screen.ExpenseEdit -> {
-                val trip = data.trip(screen.tripId)
-                if (trip == null) {
-                    Box(Modifier.fillMaxSize())
-                } else {
-                    ExpenseEditScreen(
-                        trip = trip,
-                        categories = data.categories,
-                        onCreateCategory = repo::upsertCategory,
-                        expense = screen.expenseId?.let { id -> trip.expenses.firstOrNull { it.id == id } },
-                        onBack = nav::pop,
-                        onSave = { e ->
-                            repo.upsertExpense(trip.id, e)
-                            nav.pop()
-                        },
-                        onDelete = { id ->
-                            repo.deleteExpense(trip.id, id)
-                            nav.pop()
-                        },
                     )
                 }
             }

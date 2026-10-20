@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Warning
@@ -88,8 +89,7 @@ fun TripDetailScreen(
     repo: Repository,
     onBack: () -> Unit,
     onEdit: () -> Unit,
-    onAddExpense: () -> Unit,
-    onEditExpense: (String) -> Unit,
+    history: List<Expense>,
     onReport: () -> Unit,
     onDeleted: () -> Unit,
 ) {
@@ -99,6 +99,10 @@ fun TripDetailScreen(
     // null = dialog tertutup; BudgetItem tanpa id lama = tambah baru
     var budgetDialog by remember { mutableStateOf<BudgetItem?>(null) }
     var budgetDialogNew by remember { mutableStateOf(false) }
+    // Sheet pengeluaran: null = tertutup, "" = baru, selain itu id pengeluaran yang diubah
+    var expenseSheet by remember { mutableStateOf<String?>(null) }
+    val onAddExpense: () -> Unit = { expenseSheet = "" }
+    val onEditExpense: (String) -> Unit = { id -> expenseSheet = id }
 
     Scaffold(
         topBar = {
@@ -140,9 +144,9 @@ fun TripDetailScreen(
                     text = { Text("Catat Pengeluaran") },
                 )
                 else -> ExtendedFloatingActionButton(
-                    onClick = onReport,
-                    icon = { Icon(Icons.Filled.PictureAsPdf, null) },
-                    text = { Text("Buat Laporan PDF") },
+                    onClick = onAddExpense,
+                    icon = { Icon(Icons.Filled.Add, null) },
+                    text = { Text("Catat Pengeluaran") },
                 )
             }
         },
@@ -165,7 +169,7 @@ fun TripDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 when (tab) {
-                    0 -> overviewTab(trip, categories, onStatus = { repo.setStatus(trip.id, it) })
+                    0 -> overviewTab(trip, categories, onStatus = { repo.setStatus(trip.id, it) }, onReport = onReport)
                     1 -> budgetTab(trip, categories, onClick = { budgetDialogNew = false; budgetDialog = it }, onAdd = { budgetDialogNew = true; budgetDialog = BudgetItem() })
                     else -> expenseTab(trip, categories, onClick = onEditExpense, onAdd = onAddExpense)
                 }
@@ -182,6 +186,19 @@ fun TripDetailScreen(
             onDismiss = { budgetDialog = null },
             onSave = { repo.upsertBudget(trip.id, it) },
             onDelete = { repo.deleteBudget(trip.id, it) },
+        )
+    }
+
+    expenseSheet?.let { id ->
+        ExpenseSheet(
+            trip = trip,
+            categories = categories,
+            history = history,
+            expense = trip.expenses.firstOrNull { it.id == id },
+            onSave = { repo.upsertExpense(trip.id, it) },
+            onDelete = { repo.deleteExpense(trip.id, it.id) },
+            onCreateCategory = repo::upsertCategory,
+            onDismiss = { expenseSheet = null },
         )
     }
 
@@ -250,7 +267,14 @@ private fun WhiteCard(content: @Composable () -> Unit) {
 
 // ---------------- Tab Ringkasan ----------------
 
-private fun LazyListScope.overviewTab(trip: Trip, categories: List<Category>, onStatus: (TripStatus) -> Unit) {
+private fun LazyListScope.overviewTab(trip: Trip, categories: List<Category>, onStatus: (TripStatus) -> Unit, onReport: () -> Unit) {
+    item {
+        androidx.compose.material3.FilledTonalButton(onClick = onReport, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+            Icon(Icons.Filled.PictureAsPdf, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Buat & Kirim Laporan PDF")
+        }
+    }
     item {
         WhiteCard {
             SectionTitle("Status")
@@ -329,7 +353,7 @@ private fun LazyListScope.overviewTab(trip: Trip, categories: List<Category>, on
 private fun LazyListScope.budgetTab(trip: Trip, categories: List<Category>, onClick: (BudgetItem) -> Unit, onAdd: () -> Unit) {
     item {
         TipCard(
-            "Masukkan plafon anggaran yang disetujui kantor sesuai dokumen ODR. Ketuk item untuk mengubah atau menghapus. Gunakan \"Hitung otomatis\" untuk tarif per hari/malam.",
+            "Masukkan plafon anggaran yang disetujui kantor sesuai dokumen ODR. Ketuk item (ikon pensil) untuk mengubah nominal/kategori atau menghapus. Gunakan \"Hitung otomatis\" untuk tarif per hari/malam.",
             title = "Apa itu anggaran?",
             icon = Icons.Filled.Info,
         )
@@ -353,9 +377,10 @@ private fun LazyListScope.budgetTab(trip: Trip, categories: List<Category>, onCl
         LineItem(
             badge = { CategoryBadge(cat) },
             title = b.description,
-            subtitle = "${cat.label} · realisasi kategori ${Fmt.rupiah(actual)}",
+            subtitle = "${cat.label} · realisasi ${Fmt.rupiah(actual)}",
             amount = Fmt.rupiah(b.amount),
             onClick = { onClick(b) },
+            trailing = Icons.Filled.Edit,
         )
     }
     item { TotalRow("Total Anggaran", Fmt.rupiah(trip.totalBudget)) }
@@ -391,6 +416,7 @@ private fun LazyListScope.expenseTab(trip: Trip, categories: List<Category>, onC
                 subtitle = listOf(cat.label, e.paymentMethod, e.receiptNo).filter { it.isNotBlank() }.joinToString(" · "),
                 amount = Fmt.rupiah(e.amount),
                 onClick = { onClick(e.id) },
+                trailing = if (e.photo.isNotBlank()) Icons.Filled.PhotoCamera else null,
             )
         }
     }
@@ -398,7 +424,14 @@ private fun LazyListScope.expenseTab(trip: Trip, categories: List<Category>, onC
 }
 
 @Composable
-private fun LineItem(badge: @Composable () -> Unit, title: String, subtitle: String, amount: String, onClick: () -> Unit) {
+private fun LineItem(
+    badge: @Composable () -> Unit,
+    title: String,
+    subtitle: String,
+    amount: String,
+    onClick: () -> Unit,
+    trailing: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
     Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainerLowest, shape = MaterialTheme.shapes.medium, tonalElevation = 0.dp, shadowElevation = 0.5.dp) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             badge()
@@ -409,6 +442,10 @@ private fun LineItem(badge: @Composable () -> Unit, title: String, subtitle: Str
             }
             Spacer(Modifier.width(8.dp))
             Text(amount, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            if (trailing != null) {
+                Spacer(Modifier.width(8.dp))
+                Icon(trailing, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }

@@ -175,6 +175,7 @@ fun CategoryDialog(
                             example = example.trim().let { if (it.isBlank()) "" else "Contoh: $it" },
                             color = color,
                             icon = icon,
+                            builtIn = category?.builtIn ?: false,
                         ),
                     )
                     onDismiss()

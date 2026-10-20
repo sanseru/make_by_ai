@@ -50,8 +50,14 @@ private val faqs = listOf(
         "Uang muka adalah dana yang Anda terima dari kantor sebelum berangkat. Setelah perjalanan, aplikasi menghitung: jika realisasi lebih kecil, sisa dikembalikan ke kantor; jika lebih besar, kekurangannya dapat diajukan reimburse.",
     "Kantor saya memakai sistem uang harian lumpsum, bagaimana mencatatnya?" to
         "Jika kebijakan kantor memberikan uang harian tetap (lumpsum) tanpa perlu bukti, catat sebagai pengeluaran kategori \"Uang Harian\" sebesar nominal yang ditetapkan, dan tulis dasar kebijakannya di Keterangan (mis. \"Sesuai SK uang harian golongan III\").",
+    "Cara tercepat mencatat pengeluaran?" to
+        "Tekan \"Catat Pengeluaran\" di Beranda. Aplikasi langsung memilih perjalanan yang sedang berlangsung (atau menanyakan jika ada beberapa). Ketik nominal → pilih kategori → Simpan. Gunakan \"Simpan & Tambah Lagi\" untuk mencatat beberapa struk berturut-turut, dan chip \"Isi cepat dari riwayat\" untuk biaya yang berulang.",
+    "Bagaimana melampirkan foto struk?" to
+        "Di form pengeluaran, tekan Kamera atau Galeri pada bagian \"Foto struk\". Foto dikompres & disimpan di HP, lalu otomatis dilampirkan di halaman terakhir laporan PDF (bisa dimatikan di layar Laporan). Catatan: file backup .json hanya berisi data, tidak termasuk foto.",
+    "Bagaimana mengubah anggaran yang sudah diisi?" to
+        "Buka perjalanan → tab Anggaran → ketuk item anggaran (ikon pensil) untuk mengubah kategori, uraian, atau nominal, atau menghapusnya.",
     "Bisakah saya menambah kategori sendiri?" to
-        "Bisa. Saat mengisi anggaran / pengeluaran, ketuk \"Tambah kategori baru\" di bawah pilihan kategori, atau buka Pengaturan → Kategori Biaya. Atur nama, contoh isian, warna, dan ikon. Kategori buatan sendiri bisa diubah, dan dihapus selama belum dipakai.",
+        "Bisa. Saat mengisi anggaran / pengeluaran, ketuk \"Tambah kategori baru\" di bawah pilihan kategori, atau buka Pengaturan → Kategori Biaya. Atur nama, contoh isian, warna, dan ikon. Semua kategori (termasuk bawaan) bisa diubah nama, ikon, dan warnanya, dan bisa dihapus selama belum dipakai.",
     "Bagaimana mengirim laporan ke WhatsApp atau Email?" to
         "Buka perjalanan → tombol \"Buat Laporan PDF\" → pilih \"Kirim via WhatsApp\" atau \"Kirim via Email\". File PDF otomatis terlampir beserta pesan pengantar yang bisa Anda ubah sebelum dikirim.",
     "Di mana data saya disimpan? Apakah butuh internet?" to

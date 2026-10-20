@@ -142,11 +142,10 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
             Spacer(Modifier.height(4.dp))
             Button(onClick = ::saveProfile, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("Simpan Profil") }
 
-            SectionTitle("Kategori Biaya", subtitle = "Tambah kategori sendiri, mis. Bensin & Tol, Entertain klien, Parkir")
+            SectionTitle("Kategori Biaya", subtitle = "Ketuk untuk ubah nama, ikon & warna. Tambah sendiri mis. Bensin & Tol, Parkir")
             data.categories.forEach { c ->
                 Surface(
-                    onClick = { if (!c.builtIn) editCategory = c },
-                    enabled = !c.builtIn,
+                    onClick = { editCategory = c },
                     color = MaterialTheme.colorScheme.surfaceContainerLowest,
                     shape = MaterialTheme.shapes.medium,
                 ) {
@@ -156,12 +155,12 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
                         Column(Modifier.weight(1f)) {
                             Text(c.label, style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                if (c.builtIn) "Bawaan" else "Buatan Anda · ketuk untuk ubah",
+                                if (c.builtIn) "Bawaan · ketuk untuk ubah" else "Buatan Anda · ketuk untuk ubah",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        if (!c.builtIn) Icon(Icons.Filled.Edit, "Ubah", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Filled.Edit, "Ubah", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -206,7 +205,7 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
             onSave = repo::upsertCategory,
             onDelete = {
                 if (!repo.deleteCategory(c.id)) {
-                    Toast.makeText(context, "Kategori masih dipakai di anggaran/pengeluaran, tidak bisa dihapus", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Kategori masih dipakai di anggaran/pengeluaran (atau satu-satunya kategori), tidak bisa dihapus", Toast.LENGTH_LONG).show()
                 }
             },
         )

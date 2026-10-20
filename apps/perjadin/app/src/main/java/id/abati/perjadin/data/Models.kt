@@ -96,6 +96,8 @@ data class Expense(
     val paymentMethod: String = PAYMENT_METHODS.first(),
     val receiptNo: String = "",
     val note: String = "",
+    /** Nama file foto struk di folder receipts/ (kosong = tanpa foto). */
+    val photo: String = "",
 )
 
 data class Trip(
@@ -146,13 +148,17 @@ data class Trip(
 data class AppData(
     val profile: Profile = Profile(),
     val trips: List<Trip> = emptyList(),
-    val customCategories: List<Category> = emptyList(),
+    /** Semua kategori (bawaan & buatan pengguna) yang bisa diubah. Kosong = pakai bawaan. */
+    val storedCategories: List<Category> = emptyList(),
     val onboardingDone: Boolean = false,
 ) {
     fun trip(id: String): Trip? = trips.firstOrNull { it.id == id }
 
-    /** Kategori bawaan + kategori buatan pengguna. */
-    val categories: List<Category> get() = Category.BUILT_INS + customCategories
+    val categories: List<Category> get() = storedCategories.ifEmpty { Category.BUILT_INS }
+
+    /** Semua pengeluaran dari seluruh perjalanan, terbaru dulu (untuk riwayat isian cepat). */
+    val expenseHistory: List<Expense>
+        get() = trips.sortedByDescending { it.updatedAt }.flatMap { it.expenses.reversed() }
 
     fun isCategoryUsed(id: String): Boolean =
         trips.any { t -> t.budgets.any { it.categoryId == id } || t.expenses.any { it.categoryId == id } }
@@ -184,12 +190,13 @@ fun budgetFromJson(o: JSONObject) = BudgetItem(
 fun Expense.toJson() = JSONObject()
     .put("id", id).put("day", day).put("category", categoryId).put("description", description)
     .put("amount", amount).put("paymentMethod", paymentMethod).put("receiptNo", receiptNo).put("note", note)
+    .put("photo", photo)
 
 fun expenseFromJson(o: JSONObject) = Expense(
     id = o.optString("id", newId()), day = o.optLong("day"), categoryId = o.optString("category", Category.OTHER_ID),
     description = o.str("description"), amount = o.optLong("amount"),
     paymentMethod = o.optString("paymentMethod", PAYMENT_METHODS.first()),
-    receiptNo = o.str("receiptNo"), note = o.str("note"),
+    receiptNo = o.str("receiptNo"), note = o.str("note"), photo = o.str("photo"),
 )
 
 fun Trip.toJson(): JSONObject = JSONObject()
@@ -217,16 +224,17 @@ fun tripFromJson(o: JSONObject) = Trip(
 )
 
 fun Category.toJson() = JSONObject()
-    .put("id", id).put("label", label).put("example", example).put("color", color).put("icon", icon)
+    .put("id", id).put("label", label).put("example", example).put("color", color).put("icon", icon).put("builtIn", builtIn)
 
 fun categoryFromJson(o: JSONObject) = Category(
     id = o.optString("id", newId()), label = o.str("label"), example = o.str("example"),
     color = o.optLong("color", 0xFF64748B), icon = o.optString("icon", "more"),
+    builtIn = o.optBoolean("builtIn", false),
 )
 
 fun AppData.toJson(): JSONObject = JSONObject()
-    .put("version", 2)
-    .put("categories", JSONArray(customCategories.map { it.toJson() }))
+    .put("version", 3)
+    .put("categories", JSONArray(storedCategories.map { it.toJson() }))
     .put("profile", profile.toJson())
     .put("onboardingDone", onboardingDone)
     .put("trips", JSONArray(trips.map { it.toJson() }))
@@ -234,6 +242,9 @@ fun AppData.toJson(): JSONObject = JSONObject()
 fun appDataFromJson(o: JSONObject) = AppData(
     profile = profileFromJson(o.optJSONObject("profile")),
     trips = o.optJSONArray("trips").mapObjects(::tripFromJson),
-    customCategories = o.optJSONArray("categories").mapObjects(::categoryFromJson),
+    storedCategories = o.optJSONArray("categories").mapObjects(::categoryFromJson).let { list ->
+        // v2 hanya menyimpan kategori buatan pengguna; v3 menyimpan semua kategori
+        if (o.optInt("version", 1) < 3 && list.isNotEmpty()) Category.BUILT_INS + list else list
+    },
     onboardingDone = o.optBoolean("onboardingDone", false),
 )

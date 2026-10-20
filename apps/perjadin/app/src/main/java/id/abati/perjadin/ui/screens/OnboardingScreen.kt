@@ -72,7 +72,7 @@ private val pages = listOf(
     Page(
         Icons.Filled.ReceiptLong,
         "3. Catat setiap pengeluaran",
-        "Setiap kali membayar, catat nominal & nomor struknya. Realisasi dan sisa anggaran dihitung otomatis, lengkap dengan peringatan jika melebihi plafon.",
+        "Tekan \"Catat Pengeluaran\" di Beranda: ketik nominal, pilih kategori, foto struknya. Realisasi & sisa anggaran dihitung otomatis, dengan peringatan jika melebihi plafon.",
         "Taksi bandara → hotel · Rp185.000 · Struk GRB-552301",
     ),
     Page(

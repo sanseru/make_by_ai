@@ -47,6 +47,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -68,6 +69,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -211,6 +213,7 @@ fun MoneyField(
     modifier: Modifier = Modifier,
     supporting: String? = null,
     isError: Boolean = false,
+    textStyle: TextStyle = LocalTextStyle.current,
 ) {
     var tfv by remember { mutableStateOf(TextFieldValue(if (value > 0) Fmt.number(value) else "")) }
     // Sinkronkan jika nilai diubah dari luar (mis. kalkulator jumlah × harga)
@@ -230,7 +233,8 @@ fun MoneyField(
         },
         label = { Text(label) },
         placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-        prefix = { Text("Rp ") },
+        prefix = { Text("Rp ", style = textStyle) },
+        textStyle = textStyle,
         supportingText = textSlot(supporting),
         isError = isError,
         singleLine = true,
@@ -271,19 +275,25 @@ fun DateField(
         )
     }
     if (open) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = day * Fmt.DAY_MS)
-        DatePickerDialog(
-            onDismissRequest = { open = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { onChange(it / Fmt.DAY_MS) }
-                    open = false
-                }) { Text("Pilih") }
-            },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Batal") } },
-        ) {
-            DatePicker(state = state)
-        }
+        PickDateDialog(day = day, onPick = onChange, onDismiss = { open = false })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PickDateDialog(day: Long, onPick: (Long) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = day * Fmt.DAY_MS)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.selectedDateMillis?.let { onPick(it / Fmt.DAY_MS) }
+                onDismiss()
+            }) { Text("Pilih") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
+    ) {
+        DatePicker(state = state)
     }
 }
 

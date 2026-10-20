@@ -59,6 +59,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.abati.perjadin.data.AppData
+import id.abati.perjadin.data.Category
+import id.abati.perjadin.data.Expense
 import id.abati.perjadin.data.Trip
 import id.abati.perjadin.data.TripStatus
 import id.abati.perjadin.ui.components.BudgetBar
@@ -78,7 +80,24 @@ fun HomeScreen(
     onSettings: () -> Unit,
     onTutorial: () -> Unit,
     onLoadDemo: () -> Unit,
+    onSaveExpense: (tripId: String, Expense) -> Unit,
+    onCreateCategory: (Category) -> Unit,
 ) {
+    // Alur cepat catat pengeluaran: pilih perjalanan (jika perlu) → sheet pengeluaran
+    var quickTripId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickTrip by rememberSaveable { mutableStateOf(false) }
+    val today = Fmt.today()
+    val openTrips = data.trips.filter { it.status != TripStatus.REPORTED }
+    val currentTrips = openTrips.filter { it.status == TripStatus.ONGOING || today in it.startDay..it.endDay }
+    val pickerTrips = (currentTrips + openTrips.sortedByDescending { it.startDay } + data.trips.sortedByDescending { it.startDay }).distinctBy { it.id }
+    val startQuickExpense: () -> Unit = {
+        if (currentTrips.size == 1) {
+            quickTripId = currentTrips.first().id
+        } else {
+            pickTrip = true
+        }
+    }
+
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -106,16 +125,33 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNewTrip,
-                icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text("Perjalanan Baru") },
-            )
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (data.trips.isEmpty()) {
+                    ExtendedFloatingActionButton(
+                        onClick = onNewTrip,
+                        icon = { Icon(Icons.Filled.Add, null) },
+                        text = { Text("Perjalanan Baru") },
+                    )
+                } else {
+                    ExtendedFloatingActionButton(
+                        onClick = onNewTrip,
+                        icon = { Icon(Icons.Filled.Luggage, null) },
+                        text = { Text("Perjalanan Baru") },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    ExtendedFloatingActionButton(
+                        onClick = startQuickExpense,
+                        icon = { Icon(Icons.Filled.Add, null) },
+                        text = { Text("Catat Pengeluaran") },
+                    )
+                }
+            }
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 168.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { OverviewCard(data.trips) }
@@ -190,6 +226,29 @@ fun HomeScreen(
 
             items(trips, key = { it.id }) { trip -> TripCard(trip, onClick = { onOpenTrip(trip.id) }) }
         }
+    }
+
+    if (pickTrip) {
+        TripPickerSheet(
+            trips = pickerTrips,
+            onPick = { t ->
+                pickTrip = false
+                quickTripId = t.id
+            },
+            onDismiss = { pickTrip = false },
+        )
+    }
+    quickTripId?.let { id -> data.trip(id) }?.let { trip ->
+        ExpenseSheet(
+            trip = trip,
+            categories = data.categories,
+            history = data.expenseHistory,
+            expense = null,
+            onSave = { onSaveExpense(trip.id, it) },
+            onDelete = {},
+            onCreateCategory = onCreateCategory,
+            onDismiss = { quickTripId = null },
+        )
     }
 }
 

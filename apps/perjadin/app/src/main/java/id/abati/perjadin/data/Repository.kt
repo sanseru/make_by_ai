@@ -74,15 +74,25 @@ class Repository private constructor(dir: File) {
     fun deleteExpense(tripId: String, id: String) = updateTrip(tripId) { t -> t.copy(expenses = t.expenses.filterNot { it.id == id }) }
 
     fun upsertCategory(c: Category) = update { d ->
-        val list = if (d.customCategories.any { it.id == c.id }) d.customCategories.map { if (it.id == c.id) c else it } else d.customCategories + c
-        d.copy(customCategories = list)
+        val base = d.categories
+        val list = if (base.any { it.id == c.id }) base.map { if (it.id == c.id) c else it } else base + c
+        d.copy(storedCategories = list)
     }
 
-    /** Hanya menghapus kategori yang tidak dipakai di anggaran/pengeluaran mana pun. */
+    /** Hanya menghapus kategori yang tidak dipakai, dan minimal 1 kategori harus tersisa. */
     fun deleteCategory(id: String): Boolean {
-        if (state.value.isCategoryUsed(id)) return false
-        update { d -> d.copy(customCategories = d.customCategories.filterNot { it.id == id }) }
+        val d = state.value
+        if (d.isCategoryUsed(id) || d.categories.size <= 1) return false
+        update { it.copy(storedCategories = it.categories.filterNot { c -> c.id == id }) }
         return true
+    }
+
+    /** Menghapus file foto struk yang tidak lagi dirujuk pengeluaran mana pun. */
+    fun cleanupReceipts(receiptDir: File) {
+        val used = state.value.trips.flatMap { t -> t.expenses.map { it.photo } }.filter { it.isNotBlank() }.toSet()
+        writer.execute {
+            receiptDir.listFiles()?.filter { it.name !in used }?.forEach { it.delete() }
+        }
     }
 
     fun loadDemo() = update { d -> d.copy(trips = DemoData.trips(d.profile) + d.trips) }
