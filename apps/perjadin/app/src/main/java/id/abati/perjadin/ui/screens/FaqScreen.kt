@@ -53,7 +53,7 @@ private val faqs = listOf(
     "Cara tercepat mencatat pengeluaran?" to
         "Tekan \"Catat Pengeluaran\" di Beranda. Aplikasi langsung memilih perjalanan yang sedang berlangsung (atau menanyakan jika ada beberapa). Ketik nominal → pilih kategori → Simpan. Gunakan \"Simpan & Tambah Lagi\" untuk mencatat beberapa struk berturut-turut, dan chip \"Isi cepat dari riwayat\" untuk biaya yang berulang.",
     "Bagaimana melampirkan foto struk?" to
-        "Di form pengeluaran, tekan Kamera atau Galeri pada bagian \"Foto struk\". Foto dikompres & disimpan di HP, lalu otomatis dilampirkan di halaman terakhir laporan PDF (bisa dimatikan di layar Laporan). Catatan: file backup .json hanya berisi data, tidak termasuk foto.",
+        "Di form pengeluaran, tekan Kamera atau Galeri pada bagian \"Foto struk\". Foto dikompres & disimpan di HP, lalu otomatis dilampirkan di halaman terakhir laporan PDF (bisa dimatikan di layar Laporan). Foto ikut tersimpan di backup lengkap (.zip).",
     "Dinas rutin ke kota yang sama, harus isi anggaran dari awal?" to
         "Tidak perlu. Buka perjalanan lama → menu ⋮ → \"Duplikat\". Isi No. ODR & tanggal baru. Anggaran berdasar \"Per hari\" / \"Per malam\" (mis. uang harian, hotel) otomatis dihitung ulang sesuai durasi baru, dan Anda melihat pratinjaunya sebelum menyimpan. Pengeluaran & uang muka tidak ikut disalin.",
     "Apa beda dasar perhitungan anggaran?" to
@@ -75,9 +75,13 @@ private val faqs = listOf(
     "Di mana data saya disimpan? Apakah butuh internet?" to
         "Semua data tersimpan lokal di memori internal HP Anda dan tidak dikirim ke server mana pun. Aplikasi bekerja penuh tanpa internet. Internet hanya dibutuhkan oleh WhatsApp/Email saat mengirim laporan.",
     "Bagaimana agar data tidak hilang saat ganti HP?" to
-        "Buka Pengaturan → \"Ekspor Backup\" untuk menyimpan file .json ke Google Drive / penyimpanan. Di HP baru, pasang aplikasi lalu pilih \"Impor Backup\". Lakukan backup secara berkala.",
+        "Buka Pengaturan → Data & Backup → \"Ekspor Backup\". File .zip berisi semua data, foto struk, logo & tanda tangan. Simpan ke Google Drive atau kirim ke diri sendiri. Di HP baru: pasang Perjadin → Pengaturan → \"Pulihkan\" → pilih file .zip. Aplikasi memeriksa keutuhan file dan menampilkan ringkasan sebelum memulihkan. Data di HP akan disalin otomatis lebih dulu, sehingga restore bisa dibatalkan. Backup .json dari versi lama tetap bisa dipulihkan.",
     "Bagaimana cara mengisi nominal?" to
         "Ketik angka saja tanpa titik, contoh 1500000. Aplikasi otomatis menampilkan 1.500.000. Untuk tarif per hari/malam, aktifkan \"Hitung otomatis\" di form anggaran (jumlah × tarif).",
+    "Apakah data aman jika aplikasi diperbarui atau file rusak?" to
+        "Ya. Format data diberi nomor versi dan dimigrasi otomatis (salinan sebelum migrasi disimpan). Setiap sesi, salinan terakhir yang valid disimpan. Jika file utama rusak, aplikasi memulihkan dari salinan itu dan memberi tahu Anda, tanpa menimpa file yang rusak. Namun, data akan hilang bila aplikasi di-uninstall, jadi tetap lakukan backup rutin.",
+    "Bagaimana jika perjalanan dibatalkan?" to
+        "Ubah statusnya menjadi \"Dibatalkan\". Perjalanan tidak lagi dihitung di ringkasan aktif, widget, maupun pengingat. Pengeluaran yang sudah terjadi tetap tercatat dan tetap dihitung untuk penyelesaian uang muka/reimburse.",
     "Bagaimana mengubah atau menghapus data?" to
         "Ketuk item anggaran / pengeluaran untuk mengubah atau menghapus. Untuk mengubah data perjalanan, ketuk ikon pensil di kanan atas. Hapus perjalanan melalui menu titik tiga (⋮).",
     "Apa arti status perjalanan?" to

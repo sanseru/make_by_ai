@@ -19,7 +19,8 @@ yang bisa langsung dikirim ke WhatsApp / Email.
 | Widget & shortcut | Widget 4×2 berisi perjalanan aktif, progres & sisa anggaran, tombol catat pengeluaran; shortcut tekan-lama ikon |
 | Pengingat | Notifikasi harian: belum catat pengeluaran saat dinas, laporan belum dikirim setelah pulang |
 | Onboarding & FAQ | Tutorial 5 langkah, data contoh, FAQ, placeholder berisi contoh input |
-| Data lokal | JSON di internal storage (AtomicFile), ekspor / impor backup |
+| Data lokal | JSON berversi di internal storage (AtomicFile), salinan terakhir yang valid, karantina file rusak, migrasi otomatis |
+| Backup lengkap | `.zip` berisi `manifest.json` (SHA-256 tiap file), `data.json`, foto struk, logo, tanda tangan; restore dengan validasi, pratinjau, backup otomatis sebelum restore & tombol batalkan; backup `.json` lama tetap didukung |
 
 ## Install APK
 
@@ -42,11 +43,28 @@ cd apps/perjadin
 # hasil: app/build/outputs/apk/release/app-release.apk
 ```
 
+## Pengujian
+
+| Jenis | Lokasi | Cakupan |
+|---|---|---|
+| Unit test JVM | `app/src/test` | Aturan keuangan (per hari/malam, uang muka, reimburse, duplikat), migrasi data v1–v4, validasi, backup/restore ZIP (checksum, path traversal, format baru, rollback) |
+| Instrumented | `app/src/androidTest` | PDF (80 transaksi + 7 foto), FileProvider, backup → restore lewat Repository; dijalankan CI di emulator **Android 8 (API 26)** dan **Android 14 (API 34)** |
+
+```bash
+./gradlew testDebugUnitTest              # unit test
+./gradlew connectedDebugAndroidTest      # butuh emulator/HP terhubung
+```
+
+Rilis hanya dipublikasikan bila build, unit test, dan instrumented test di kedua emulator lulus.
+
 ## Struktur
 
 ```
 app/src/main/java/id/abati/perjadin/
-├── data/      Models, Repository (penyimpanan JSON lokal), DemoData
+├── backup/    BackupManager (ZIP + manifest + validasi), BackupService (SAF)
+├── data/      Models (+ versi data, migrasi, validasi), Repository, DemoData
+├── reminder/  Pengingat harian (WorkManager)
+├── widget/    Widget layar utama
 ├── report/    PdfReport (android.graphics.pdf), ShareHelper (WhatsApp/Email/FileProvider)
 ├── ui/        App (navigasi), theme, components, screens/*
 └── util/      Fmt (format Rupiah & tanggal Indonesia)

@@ -32,8 +32,9 @@ object PdfReport {
     )
 
     fun fileName(trip: Trip): String {
+        // Format: Perjadin_<ODR>_<tanggal berangkat>.pdf — mudah dicari berdasarkan No. ODR
         val odr = trip.odrNumber.replace(Regex("[^A-Za-z0-9]+"), "-").trim('-').ifBlank { "tanpa-nomor" }
-        return "Laporan_Perjadin_$odr.pdf"
+        return "Perjadin_${odr}_${java.time.LocalDate.ofEpochDay(trip.startDay)}.pdf"
     }
 
     fun generate(context: Context, trip: Trip, profile: Profile, categories: List<Category>, options: Options): File {
@@ -335,8 +336,9 @@ private class ReportLayout(
     }
 
     private fun summaryBox() {
-        val hasAdvance = trip.advance > 0
-        val h = if (hasAdvance) 92f else 54f
+        // Bagian penyelesaian tampil jika ada uang muka atau pengeluaran
+        val hasSettlement = trip.advance > 0 || trip.totalActual > 0
+        val h = if (hasSettlement) 108f else 54f
         ensure(h + 10f)
         fillPaint.color = zebra
         val rect = RectF(margin, y, pageW - margin, y + h)
@@ -355,17 +357,26 @@ private class ReportLayout(
             canvas.drawText(label, x, y + 18f, small)
             canvas.drawText(value, x, y + 36f, paint(12f, bold = true, color = color))
         }
-        if (hasAdvance) {
+        if (hasSettlement) {
             val ly = y + 54f
             canvas.drawLine(margin + 12f, ly, pageW - margin - 12f, ly, strokePaint)
-            val s = trip.settlement
+            val due = trip.amountDueToEmployee
             val text = when {
-                s > 0 -> "Uang muka ${Fmt.rupiah(trip.advance)} − realisasi ${Fmt.rupiah(trip.totalActual)} = sisa ${Fmt.rupiah(s)} dikembalikan ke kantor"
-                s < 0 -> "Uang muka ${Fmt.rupiah(trip.advance)} − realisasi ${Fmt.rupiah(trip.totalActual)} = kekurangan ${Fmt.rupiah(-s)} dibayarkan kantor (reimburse)"
+                trip.advance == 0L -> "Tanpa uang muka: seluruh realisasi ${Fmt.rupiah(trip.totalActual)} diajukan sebagai reimburse"
+                due < 0 -> "Uang muka ${Fmt.rupiah(trip.advance)} − realisasi ${Fmt.rupiah(trip.totalActual)} = sisa ${Fmt.rupiah(-due)} dikembalikan ke kantor"
+                due > 0 -> "Uang muka ${Fmt.rupiah(trip.advance)} − realisasi ${Fmt.rupiah(trip.totalActual)} = kekurangan ${Fmt.rupiah(due)} dibayarkan kantor (reimburse)"
                 else -> "Uang muka ${Fmt.rupiah(trip.advance)} sama dengan realisasi — tidak ada selisih"
             }
-            canvas.drawText("Penyelesaian Uang Muka", margin + 12f, ly + 15f, small)
-            canvas.drawText(text, margin + 12f, ly + 30f, paint(8.5f, bold = true, color = if (s < 0) red else dark))
+            val verb = if (due >= 0) "diterima" else "dikembalikan"
+            val status = when {
+                trip.isSettled -> "Status: selesai ${Fmt.date(trip.settledDay)} — ${Fmt.rupiah(trip.settledAmount)} $verb"
+                trip.isSubmitted -> "Status: diajukan ${Fmt.date(trip.submittedDay)} — menunggu penyelesaian"
+                due == 0L -> "Status: tidak ada yang perlu diselesaikan"
+                else -> "Status: belum diajukan"
+            }
+            canvas.drawText("Penyelesaian Uang Muka & Reimburse", margin + 12f, ly + 15f, small)
+            canvas.drawText(text, margin + 12f, ly + 30f, paint(8.5f, bold = true, color = if (due > 0) red else dark))
+            canvas.drawText(status, margin + 12f, ly + 45f, body)
         }
         y += h + 18f
     }

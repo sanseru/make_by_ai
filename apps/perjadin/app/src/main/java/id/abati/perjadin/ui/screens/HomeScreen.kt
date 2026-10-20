@@ -92,7 +92,7 @@ fun HomeScreen(
     var quickTripId by rememberSaveable { mutableStateOf<String?>(null) }
     var pickTrip by rememberSaveable { mutableStateOf(false) }
     val today = Fmt.today()
-    val openTrips = data.trips.filter { it.status != TripStatus.REPORTED }
+    val openTrips = data.trips.filter { it.status.isOpen }
     val currentTrips = openTrips.filter { it.status == TripStatus.ONGOING || today in it.startDay..it.endDay }
     val pickerTrips = (currentTrips + openTrips.sortedByDescending { it.startDay } + data.trips.sortedByDescending { it.startDay }).distinctBy { it.id }
     val startQuickExpense: () -> Unit = {
@@ -170,6 +170,18 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { OverviewCard(data.trips) }
+
+            // Pengingat backup berkala (tidak memblokir pemakaian)
+            val backupAge = System.currentTimeMillis() - data.lastBackupAt
+            if (data.trips.any { it.expenses.isNotEmpty() } && (data.lastBackupAt == 0L || backupAge > 14L * Fmt.DAY_MS)) {
+                item {
+                    SettlementBanner(
+                        text = if (data.lastBackupAt == 0L) "Data belum pernah di-backup" else "Backup terakhir ${backupAge / Fmt.DAY_MS} hari lalu",
+                        detail = "Ketuk untuk ekspor backup lengkap agar data aman saat ganti HP",
+                        onClick = onSettings,
+                    )
+                }
+            }
 
             // Pengingat uang yang belum diselesaikan dengan kantor
             val owed = data.trips.filter { it.needsSettlement && it.amountDueToEmployee > 0 }
@@ -306,7 +318,7 @@ private fun SettlementBanner(text: String, detail: String, onClick: () -> Unit) 
 @Composable
 private fun OverviewCard(trips: List<Trip>) {
     // Ringkasan hanya untuk perjalanan yang belum dilaporkan (masih berjalan)
-    val active = trips.filter { it.status != TripStatus.REPORTED }
+    val active = trips.filter { it.status.isOpen }
     val budget = active.sumOf { it.totalBudget }
     val actual = active.sumOf { it.totalActual }
     val cs = MaterialTheme.colorScheme

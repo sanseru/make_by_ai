@@ -102,27 +102,9 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
     var approverName by rememberSaveable { mutableStateOf(p.approverName) }
     var approverTitle by rememberSaveable { mutableStateOf(p.approverTitle) }
     var confirmClear by remember { mutableStateOf(false) }
-    var pendingImport by remember { mutableStateOf<String?>(null) }
     var newCategory by remember { mutableStateOf(false) }
     var editCategory by remember { mutableStateOf<Category?>(null) }
 
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        try {
-            context.contentResolver.openOutputStream(uri)?.use { it.write(repo.exportJson().toByteArray(Charsets.UTF_8)) }
-            Toast.makeText(context, "Backup tersimpan", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal menyimpan backup: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        try {
-            pendingImport = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal membaca file: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
 
     // ---------- logo, tanda tangan, pengingat ----------
     val scope = rememberCoroutineScope()
@@ -271,15 +253,16 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
             }
             PillButton("Tambah Kategori", Icons.Filled.Add, { newCategory = true }, Modifier.fillMaxWidth())
 
-            SectionTitle("Data & Backup", subtitle = "Data hanya tersimpan di HP ini. Backup rutin agar aman.")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillButton("Ekspor Backup", Icons.Filled.CloudUpload, {
-                    exportLauncher.launch("perjadin-backup-${LocalDate.now()}.json")
-                }, Modifier.weight(1f))
-                PillButton("Impor Backup", Icons.Filled.CloudDownload, {
-                    importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
-                }, Modifier.weight(1f))
-            }
+            SectionTitle("Data & Backup", subtitle = "Data hanya tersimpan di HP ini. Backup rutin agar aman saat ganti HP.")
+            BackupSection(
+                data = data,
+                repo = repo,
+                onRestored = {
+                    val np = repo.state.value.profile
+                    name = np.name; employeeId = np.employeeId; position = np.position; department = np.department
+                    company = np.company; approverName = np.approverName; approverTitle = np.approverTitle
+                },
+            )
             PillButton("Tambah Data Contoh", Icons.Filled.Science, {
                 repo.loadDemo()
                 Toast.makeText(context, "1 perjalanan contoh ditambahkan", Toast.LENGTH_SHORT).show()
@@ -289,7 +272,8 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
 
             SectionTitle("Tentang")
             Text(
-                "Perjadin — Catatan Perjalanan Dinas\n${data.trips.size} perjalanan tersimpan · ${Fmt.date(Fmt.today())}\n" +
+                "Perjadin ${id.abati.perjadin.BuildConfig.VERSION_NAME} (build ${id.abati.perjadin.BuildConfig.VERSION_CODE}) — Catatan Perjalanan Dinas\n" +
+                    "${data.trips.size} perjalanan tersimpan · format data v${id.abati.perjadin.data.DATA_VERSION}\n" +
                     "Seluruh data disimpan offline di perangkat ini.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -342,26 +326,6 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
         )
     }
 
-    pendingImport?.let { text ->
-        ConfirmDialog(
-            title = "Pulihkan dari backup?",
-            message = "Data saat ini akan DIGANTI dengan isi file backup. Lanjutkan?",
-            confirmText = "Pulihkan",
-            destructive = false,
-            onConfirm = {
-                try {
-                    repo.importJson(text)
-                    val np = repo.state.value.profile
-                    name = np.name; employeeId = np.employeeId; position = np.position; department = np.department
-                    company = np.company; approverName = np.approverName; approverTitle = np.approverTitle
-                    Toast.makeText(context, "Backup berhasil dipulihkan", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Toast.makeText(context, "File backup tidak valid", Toast.LENGTH_LONG).show()
-                }
-            },
-            onDismiss = { pendingImport = null },
-        )
-    }
 }
 
 /** Baris pratinjau logo / tanda tangan dengan tombol ganti & hapus. */

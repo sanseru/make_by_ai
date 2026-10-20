@@ -14,12 +14,14 @@ concurrency:
   group: perjadin-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: apps/perjadin
+
 jobs:
+  # 1. Unit test (keuangan, migrasi data, backup) + build APK release
   build:
     runs-on: ubuntu-24.04  # dipin agar tidak ikut migrasi otomatis ke Ubuntu 26
-    defaults:
-      run:
-        working-directory: apps/perjadin
     env:
       # Opsional: isi secrets ini untuk menandatangani APK dengan kunci rilis sendiri
       KEYSTORE_BASE64: ${{ secrets.PERJADIN_KEYSTORE_BASE64 }}
@@ -42,27 +44,88 @@ jobs:
           echo "PERJADIN_KEY_ALIAS=${{ secrets.PERJADIN_KEY_ALIAS }}" >> "$GITHUB_ENV"
           echo "PERJADIN_KEY_PASSWORD=${{ secrets.PERJADIN_KEY_PASSWORD }}" >> "$GITHUB_ENV"
 
-      - name: Build APK
+      - name: Unit test & build APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon --stacktrace
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/Perjadin-v1.0.${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/Perjadin-v1.1.0-build${GITHUB_RUN_NUMBER}.apk"
           ls -la dist
+
+      - name: Upload hasil unit test
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-results
+          path: apps/perjadin/app/build/reports/tests/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v7
         with:
           name: Perjadin-apk
           path: apps/perjadin/dist/*.apk
 
+  # 2. Instrumented test di emulator: Android 8.0 (minimum) & Android 14
+  device-tests:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 34]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Aktifkan KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Jalankan instrumented test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: apps/perjadin
+          script: chmod +x gradlew && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Upload hasil instrumented test
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-test-results-api${{ matrix.api-level }}
+          path: apps/perjadin/app/build/reports/androidTests/
+          if-no-files-found: ignore
+
+  # 3. Rilis hanya jika semua test lulus
+  release:
+    needs: [build, device-tests]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: Perjadin-apk
+          path: dist
+
       - name: Publikasikan ke GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: perjadin-v1.0.${{ github.run_number }}
-          name: Perjadin v1.0.${{ github.run_number }}
+          tag_name: perjadin-v1.1.0-build${{ github.run_number }}
+          name: Perjadin v1.1.0 (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           prerelease: true
-          body: |
-            APK aplikasi Perjadin (Catatan Perjalanan Dinas) dari commit ${{ github.sha }}.
-            Unduh file .apk di bawah ini dari HP Android, lalu install (izinkan "Install dari sumber tidak dikenal").
-          files: apps/perjadin/dist/*.apk
+          body_path: apps/perjadin/RELEASE_NOTES.md
+          files: dist/*.apk

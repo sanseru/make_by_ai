@@ -133,6 +133,7 @@ fun StatusBadge(status: TripStatus) {
         TripStatus.ONGOING -> Warning
         TripStatus.DONE -> MaterialTheme.colorScheme.primary
         TripStatus.REPORTED -> Success
+        TripStatus.CANCELLED -> MaterialTheme.colorScheme.outline
     }
     Surface(color = color.copy(alpha = 0.14f), shape = RoundedCornerShape(50)) {
         Text(

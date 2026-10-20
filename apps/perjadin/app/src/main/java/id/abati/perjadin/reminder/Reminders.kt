@@ -100,7 +100,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val data = Repository.get(applicationContext).state.value
         if (!data.reminderEnabled) return Result.success()
         val today = Fmt.today()
-        val open = data.trips.filter { it.status != TripStatus.REPORTED }
+        val open = data.trips.filter { it.status.isOpen }
 
         open.filter { today in it.startDay..it.endDay && it.expenses.none { e -> e.day == today } }.forEach { t ->
             Reminders.notify(

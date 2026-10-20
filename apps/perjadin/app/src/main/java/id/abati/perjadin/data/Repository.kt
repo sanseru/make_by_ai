@@ -10,39 +10,121 @@ import org.json.JSONObject
 import id.abati.perjadin.widget.TripWidget
 import java.io.File
 import java.time.LocalDate
+import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
 /**
  * Penyimpanan lokal berbasis satu file JSON di internal storage aplikasi.
- * State di-update sinkron di memori; penulisan ke disk dilakukan berurutan
- * pada satu thread background dengan AtomicFile agar file tidak korup.
+ *
+ * Perlindungan data:
+ * - Penulisan berurutan di satu thread background memakai AtomicFile (tidak setengah tertulis).
+ * - Sebelum penulisan pertama tiap sesi, file yang terakhir valid disalin ke `perjadin-data.prev.json`.
+ * - File yang gagal dibaca TIDAK ditimpa: disimpan sebagai `perjadin-data.corrupt-<waktu>.json`,
+ *   lalu dicoba dipulihkan dari salinan `.prev`.
+ * - Data dari versi aplikasi yang lebih baru dibuka read-only agar tidak rusak karena downgrade.
+ * - Sebelum migrasi format lama, salinan asli disimpan di folder `auto-backups/`.
  */
 class Repository private constructor(private val appContext: Context) {
 
-    private val file = AtomicFile(File(appContext.filesDir, "perjadin-data.json"))
+    private val dataFile = File(appContext.filesDir, "perjadin-data.json")
+    private val prevFile = File(appContext.filesDir, "perjadin-data.prev.json")
+    private val file = AtomicFile(dataFile)
     private val writer = Executors.newSingleThreadExecutor()
+
+    /** Pesan untuk pengguna tentang masalah data saat dibuka (ditampilkan sekali). */
+    private val _notice = MutableStateFlow<String?>(null)
+    val notice: StateFlow<String?> = _notice.asStateFlow()
+
+    /** false = data tidak boleh ditulis (mis. format lebih baru dari aplikasi). */
+    @Volatile
+    private var writable = true
+    private var loadedFromDisk = false
+    private var prevSaved = false
+
     private val _state = MutableStateFlow(load())
     val state: StateFlow<AppData> = _state.asStateFlow()
 
-    private fun load(): AppData = try {
-        appDataFromJson(JSONObject(String(file.readFully(), Charsets.UTF_8)))
-    } catch (_: Exception) {
-        AppData()
+    val autoBackupDir: File get() = File(appContext.filesDir, "auto-backups").apply { mkdirs() }
+
+    private fun load(): AppData {
+        if (!dataFile.exists() && !File(dataFile.path + ".bak").exists()) return AppData()
+        return try {
+            val text = String(file.readFully(), Charsets.UTF_8)
+            val version = dataVersionOf(JSONObject(text))
+            if (version < DATA_VERSION) {
+                File(autoBackupDirUnsafe(), "pre-migration-v$version-${System.currentTimeMillis()}.json").writeText(text)
+            }
+            parseAppData(text).also { loadedFromDisk = true }
+        } catch (e: UnsupportedDataVersionException) {
+            writable = false
+            _notice.value = "${e.message}\n\nData dibuka dalam mode baca-saja agar tidak rusak."
+            AppData(onboardingDone = true)
+        } catch (e: Exception) {
+            // Jangan pernah menimpa file yang rusak: amankan dulu salinannya
+            val quarantine = File(appContext.filesDir, "perjadin-data.corrupt-${System.currentTimeMillis()}.json")
+            runCatching { dataFile.copyTo(quarantine, overwrite = true) }
+            val recovered = runCatching { parseAppData(prevFile.readText()) }.getOrNull()
+            if (recovered != null) {
+                _notice.value = "File data utama rusak dan telah dipulihkan dari salinan terakhir yang valid. " +
+                    "File rusak disimpan sebagai ${quarantine.name}."
+                recovered
+            } else {
+                _notice.value = "File data tidak dapat dibaca (${e.message}). Salinannya disimpan sebagai ${quarantine.name}. " +
+                    "Pulihkan dari file backup melalui Pengaturan → Pulihkan dari Backup."
+                AppData(onboardingDone = true)
+            }
+        }
+    }
+
+    // Dipakai saat konstruksi (sebelum properti lazy lain siap)
+    private fun autoBackupDirUnsafe(): File = File(appContext.filesDir, "auto-backups").apply { mkdirs() }
+
+    fun dismissNotice() {
+        _notice.value = null
+    }
+
+    private fun writeToDisk(json: String) {
+        // Salinan file valid terakhir sebelum penulisan pertama di sesi ini
+        if (!prevSaved && loadedFromDisk && dataFile.exists()) {
+            runCatching { dataFile.copyTo(prevFile, overwrite = true) }
+            prevSaved = true
+        }
+        val out = file.startWrite()
+        try {
+            out.write(json.toByteArray(Charsets.UTF_8))
+            file.finishWrite(out)
+            loadedFromDisk = true
+        } catch (e: Exception) {
+            file.failWrite(out)
+            throw e
+        }
     }
 
     private fun update(transform: (AppData) -> AppData) {
+        if (!writable) return
         val json = _state.updateAndGet(transform).toJson().toString()
         writer.execute {
-            val out = file.startWrite()
-            try {
-                out.write(json.toByteArray(Charsets.UTF_8))
-                file.finishWrite(out)
-                // Segarkan widget layar utama setiap data berubah
-                TripWidget.updateAll(appContext)
-            } catch (e: Exception) {
-                file.failWrite(out)
-            }
+            runCatching { writeToDisk(json) }
+            // Segarkan widget layar utama setiap data berubah
+            runCatching { TripWidget.updateAll(appContext) }
         }
+    }
+
+    /**
+     * Mengganti seluruh data lalu menunggu sampai benar-benar tersimpan di disk
+     * (dipakai oleh restore, agar kegagalan tulis bisa di-rollback oleh pemanggil).
+     */
+    fun replaceAllBlocking(data: AppData) {
+        check(writable) { "Data sedang dalam mode baca-saja" }
+        val json = data.toJson().toString()
+        writer.submit(Callable { writeToDisk(json) }).get()
+        _state.value = data
+        writer.execute { runCatching { TripWidget.updateAll(appContext) } }
+    }
+
+    /** Menunggu semua penulisan yang tertunda selesai (sebelum backup/restore). */
+    fun flush() {
+        writer.submit(Callable { }).get()
     }
 
     private fun updateTrip(tripId: String, transform: (Trip) -> Trip) = update { d ->
@@ -121,13 +203,7 @@ class Repository private constructor(private val appContext: Context) {
 
     fun clearAll() = update { AppData(onboardingDone = true) }
 
-    fun exportJson(): String = state.value.toJson().toString(2)
-
-    /** Mengganti seluruh data dengan isi backup. Melempar exception jika format tidak valid. */
-    fun importJson(text: String) {
-        val parsed = appDataFromJson(JSONObject(text))
-        update { parsed.copy(onboardingDone = true) }
-    }
+    fun markBackedUp(time: Long = System.currentTimeMillis()) = update { it.copy(lastBackupAt = time) }
 
     companion object {
         @Volatile

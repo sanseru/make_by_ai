@@ -106,6 +106,17 @@ fun PerjadinApp(repo: Repository, launchAction: LaunchAction? = null, onLaunchHa
     // Surface menetapkan LocalContentColor = onBackground, sehingga teks tanpa warna
     // eksplisit tetap terbaca di mode gelap.
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    // Pemberitahuan masalah data saat dibuka (file rusak / versi lebih baru)
+    val notice by repo.notice.collectAsState()
+    notice?.let { msg ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = repo::dismissNotice,
+            title = { androidx.compose.material3.Text("Perhatian: data aplikasi") },
+            text = { androidx.compose.material3.Text(msg) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = repo::dismissNotice) { androidx.compose.material3.Text("Mengerti") } },
+        )
+    }
+
     AnimatedContent(
         targetState = nav.current,
         transitionSpec = {

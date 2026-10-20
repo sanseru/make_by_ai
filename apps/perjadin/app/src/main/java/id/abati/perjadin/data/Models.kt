@@ -49,7 +49,11 @@ enum class TripStatus(val label: String) {
     PLANNED("Rencana"),
     ONGOING("Berlangsung"),
     DONE("Selesai"),
-    REPORTED("Dilaporkan");
+    REPORTED("Dilaporkan"),
+    CANCELLED("Dibatalkan");
+
+    /** Masih perlu ditindaklanjuti (belum dilaporkan & tidak dibatalkan). */
+    val isOpen: Boolean get() = this != REPORTED && this != CANCELLED
 
     companion object {
         fun of(name: String?): TripStatus = entries.firstOrNull { it.name == name } ?: PLANNED
@@ -228,6 +232,8 @@ data class AppData(
     val reminderEnabled: Boolean = false,
     /** Jam pengingat harian (0–23). */
     val reminderHour: Int = 20,
+    /** Waktu ekspor backup terakhir (epoch millis), 0 = belum pernah. */
+    val lastBackupAt: Long = 0,
 ) {
     fun trip(id: String): Trip? = trips.firstOrNull { it.id == id }
 
@@ -238,7 +244,7 @@ data class AppData(
      * yang sedang berlangsung → yang akan datang terdekat → yang terakhir selesai tapi belum dilaporkan.
      */
     fun focusTrip(today: Long): Trip? {
-        val open = trips.filter { it.status != TripStatus.REPORTED }
+        val open = trips.filter { it.status.isOpen }
         return open.filter { today in it.startDay..it.endDay || it.status == TripStatus.ONGOING }.maxByOrNull { it.startDay }
             ?: open.filter { it.startDay > today }.minByOrNull { it.startDay }
             ?: open.maxByOrNull { it.endDay }
@@ -329,11 +335,12 @@ fun categoryFromJson(o: JSONObject) = Category(
 )
 
 fun AppData.toJson(): JSONObject = JSONObject()
-    .put("version", 3)
+    .put("version", DATA_VERSION)
     .put("categories", JSONArray(storedCategories.map { it.toJson() }))
     .put("profile", profile.toJson())
     .put("onboardingDone", onboardingDone)
     .put("reminderEnabled", reminderEnabled).put("reminderHour", reminderHour)
+    .put("lastBackupAt", lastBackupAt)
     .put("trips", JSONArray(trips.map { it.toJson() }))
 
 fun appDataFromJson(o: JSONObject) = AppData(
@@ -346,4 +353,59 @@ fun appDataFromJson(o: JSONObject) = AppData(
     onboardingDone = o.optBoolean("onboardingDone", false),
     reminderEnabled = o.optBoolean("reminderEnabled", false),
     reminderHour = o.optInt("reminderHour", 20),
+    lastBackupAt = o.optLong("lastBackupAt", 0),
 )
+
+// ---------- Versi data, migrasi & validasi ----------
+
+/**
+ * Riwayat versi format data:
+ * 1 = awal (tanpa field version), kategori enum bawaan.
+ * 2 = "categories" berisi kategori buatan pengguna saja.
+ * 3 = "categories" berisi semua kategori (bawaan + buatan pengguna).
+ * 4 = dasar anggaran, foto struk, status reimburse, pengingat, logo/tanda tangan, lastBackupAt.
+ * Semua field baru opsional dengan nilai default, sehingga data lama selalu terbaca.
+ */
+const val DATA_VERSION = 4
+
+class UnsupportedDataVersionException(val found: Int) :
+    Exception("Data dibuat oleh versi aplikasi yang lebih baru (format $found, didukung maks $DATA_VERSION). Perbarui aplikasi Perjadin terlebih dulu.")
+
+fun dataVersionOf(o: JSONObject): Int = o.optInt("version", 1)
+
+/** Membaca data dari teks JSON, menolak format yang lebih baru dari aplikasi ini. */
+fun parseAppData(text: String): AppData {
+    val o = JSONObject(text)
+    val version = dataVersionOf(o)
+    if (version > DATA_VERSION) throw UnsupportedDataVersionException(version)
+    return appDataFromJson(o)
+}
+
+/**
+ * Memeriksa konsistensi data sebelum dipakai (mis. saat restore).
+ * Mengembalikan daftar masalah; kosong berarti data valid.
+ */
+fun validateAppData(data: AppData): List<String> {
+    val issues = mutableListOf<String>()
+    data.trips.groupBy { it.id }.filter { it.value.size > 1 }.keys.forEach { issues += "ID perjalanan ganda: $it" }
+    data.categories.groupBy { it.id }.filter { it.value.size > 1 }.keys.forEach { issues += "ID kategori ganda: $it" }
+    data.trips.forEach { t ->
+        val name = t.odrNumber.ifBlank { t.id }
+        if (t.endDay < t.startDay) issues += "$name: tanggal pulang sebelum tanggal berangkat"
+        if (t.advance < 0) issues += "$name: uang muka negatif"
+        if (t.budgets.any { it.amount < 0 || it.rate < 0 || it.qty < 0 }) issues += "$name: ada anggaran bernilai negatif"
+        if (t.expenses.any { it.amount < 0 }) issues += "$name: ada pengeluaran bernilai negatif"
+        if (t.budgets.map { it.id }.toSet().size != t.budgets.size) issues += "$name: ID anggaran ganda"
+        if (t.expenses.map { it.id }.toSet().size != t.expenses.size) issues += "$name: ID pengeluaran ganda"
+    }
+    // Nama file aset harus nama file biasa, bukan path (mencegah path traversal)
+    val fileNames = data.trips.flatMap { t -> t.expenses.map { it.photo } } + data.profile.logoFile + data.profile.signatureFile
+    fileNames.filter { it.isNotBlank() && !isSafeFileName(it) }.forEach { issues += "Nama file aset tidak valid: $it" }
+    return issues
+}
+
+private val SAFE_NAME = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+/** Nama file tanpa direktori, tanpa "..", hanya karakter aman. */
+fun isSafeFileName(name: String): Boolean = SAFE_NAME.matches(name) && !name.contains("..")
+
