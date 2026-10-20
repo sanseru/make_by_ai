@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Perjadin</string>
+    <string name="widget_label">Perjadin – Perjalanan Aktif</string>
+    <string name="widget_description">Sisa anggaran perjalanan aktif &amp; tombol catat pengeluaran</string>
+    <string name="shortcut_expense_short">Catat Pengeluaran</string>
+    <string name="shortcut_expense_long">Catat pengeluaran perjalanan aktif</string>
+    <string name="shortcut_trip_short">Perjalanan Baru</string>
+    <string name="shortcut_trip_long">Buat perjalanan dinas baru</string>
 </resources>

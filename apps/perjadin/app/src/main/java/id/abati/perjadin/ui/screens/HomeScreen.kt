@@ -59,7 +59,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
 import id.abati.perjadin.data.AppData
+import id.abati.perjadin.ui.QuickRequest
 import id.abati.perjadin.data.Category
 import id.abati.perjadin.data.Expense
 import id.abati.perjadin.data.Trip
@@ -83,6 +85,8 @@ fun HomeScreen(
     onLoadDemo: () -> Unit,
     onSaveExpense: (tripId: String, Expense) -> Unit,
     onCreateCategory: (Category) -> Unit,
+    quickRequest: QuickRequest? = null,
+    onQuickHandled: () -> Unit = {},
 ) {
     // Alur cepat catat pengeluaran: pilih perjalanan (jika perlu) → sheet pengeluaran
     var quickTripId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -92,7 +96,9 @@ fun HomeScreen(
     val currentTrips = openTrips.filter { it.status == TripStatus.ONGOING || today in it.startDay..it.endDay }
     val pickerTrips = (currentTrips + openTrips.sortedByDescending { it.startDay } + data.trips.sortedByDescending { it.startDay }).distinctBy { it.id }
     val startQuickExpense: () -> Unit = {
-        if (currentTrips.size == 1) {
+        if (data.trips.isEmpty()) {
+            onNewTrip()
+        } else if (currentTrips.size == 1) {
             quickTripId = currentTrips.first().id
         } else {
             pickTrip = true
@@ -108,6 +114,14 @@ fun HomeScreen(
             query.isBlank() || listOf(t.odrNumber, t.purpose, t.destination, t.origin).any { it.contains(query.trim(), ignoreCase = true) }
         }
         .sortedByDescending { it.startDay }
+
+    // Permintaan dari widget / shortcut
+    LaunchedEffect(quickRequest) {
+        val req = quickRequest ?: return@LaunchedEffect
+        val target = req.tripId?.let { data.trip(it) }
+        if (target != null) quickTripId = target.id else startQuickExpense()
+        onQuickHandled()
+    }
 
     Scaffold(
         topBar = {

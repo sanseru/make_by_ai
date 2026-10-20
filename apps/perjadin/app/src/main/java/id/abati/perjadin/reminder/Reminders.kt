@@ -118,6 +118,8 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 pending.joinToString(", ") { it.odrNumber } + ". Buat laporan PDF lalu tandai \"Dilaporkan\".",
             )
         }
+        // Sekalian segarkan widget karena "perjalanan aktif" bergantung pada tanggal
+        id.abati.perjadin.widget.TripWidget.updateAll(applicationContext)
         return Result.success()
     }
 }

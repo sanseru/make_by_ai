@@ -16,6 +16,7 @@ yang bisa langsung dikirim ke WhatsApp / Email.
 | Laporan PDF (A4) | Kop perusahaan + logo, tanda tangan digital, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan, lampiran foto struk |
 | Berbagi | Kirim via WhatsApp, Email (PDF terlampir + pesan pengantar), aplikasi lain, lihat, simpan file |
 | Status reimburse | Catat tanggal diajukan, tanggal dibayar & nominal diterima; Beranda menampilkan total yang masih menunggu |
+| Widget & shortcut | Widget 4×2 berisi perjalanan aktif, progres & sisa anggaran, tombol catat pengeluaran; shortcut tekan-lama ikon |
 | Pengingat | Notifikasi harian: belum catat pengeluaran saat dinas, laporan belum dikirim setelah pulang |
 | Onboarding & FAQ | Tutorial 5 langkah, data contoh, FAQ, placeholder berisi contoh input |
 | Data lokal | JSON di internal storage (AtomicFile), ekspor / impor backup |

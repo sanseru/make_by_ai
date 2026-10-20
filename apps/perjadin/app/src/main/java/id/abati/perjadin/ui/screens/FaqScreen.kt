@@ -62,6 +62,8 @@ private val faqs = listOf(
         "Buka perjalanan → tab Anggaran → ketuk item anggaran (ikon pensil) untuk mengubah kategori, uraian, atau nominal, atau menghapusnya.",
     "Bisakah saya menambah kategori sendiri?" to
         "Bisa. Saat mengisi anggaran / pengeluaran, ketuk \"Tambah kategori baru\" di bawah pilihan kategori, atau buka Pengaturan → Kategori Biaya. Atur nama, contoh isian, warna, dan ikon. Semua kategori (termasuk bawaan) bisa diubah nama, ikon, dan warnanya, dan bisa dihapus selama belum dipakai.",
+    "Bagaimana memasang widget di layar utama?" to
+        "Tekan lama area kosong di layar utama HP → Widget → cari \"Perjadin\" → seret ke layar. Widget menampilkan perjalanan aktif, sisa anggaran, dan tombol \"+ Catat Pengeluaran\". Bisa juga tekan lama ikon Perjadin untuk shortcut \"Catat Pengeluaran\" / \"Perjalanan Baru\".",
     "Bagaimana melacak reimburse yang belum dibayar?" to
         "Di tab Ringkasan ada kartu \"Penyelesaian & Reimburse\". Tekan \"Perbarui Status Reimburse\" untuk mencatat tanggal laporan diajukan, tanggal dibayar, dan nominal yang benar-benar diterima. Selama belum selesai, Beranda menampilkan total uang yang masih menunggu reimburse atau yang perlu dikembalikan.",
     "Bagaimana menambahkan logo dan tanda tangan di PDF?" to

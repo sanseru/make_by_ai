@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -36,6 +37,16 @@ sealed interface Screen {
     data class Report(val tripId: String) : Screen
 }
 
+/** Aksi yang memicu aplikasi dari luar (widget layar utama / shortcut ikon). */
+sealed interface LaunchAction {
+    data class QuickExpense(val tripId: String?) : LaunchAction
+    data class OpenTrip(val tripId: String) : LaunchAction
+    data object NewTrip : LaunchAction
+}
+
+/** Permintaan membuka form catat cepat di Beranda; [nonce] agar permintaan berulang tetap terproses. */
+data class QuickRequest(val tripId: String?, val nonce: Long = System.nanoTime())
+
 /** Back stack sederhana berbasis state Compose (tanpa library navigasi). */
 class Navigator(start: Screen) {
     private val stack = mutableStateListOf(start)
@@ -52,7 +63,7 @@ class Navigator(start: Screen) {
 }
 
 @Composable
-fun PerjadinApp(repo: Repository) {
+fun PerjadinApp(repo: Repository, launchAction: LaunchAction? = null, onLaunchHandled: () -> Unit = {}) {
     val data by repo.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
     // Bersihkan foto struk yatim (mis. foto diambil lalu batal disimpan) sekali saat app dibuka
@@ -61,11 +72,36 @@ fun PerjadinApp(repo: Repository) {
         // Pastikan jadwal pengingat tetap ada (mis. setelah update aplikasi)
         val d = repo.state.value
         id.abati.perjadin.reminder.Reminders.schedule(context, d.reminderEnabled, d.reminderHour, replace = false)
+        // Perjalanan "aktif" bisa berganti karena tanggal berganti
+        id.abati.perjadin.widget.TripWidget.updateAll(context)
     }
     val nav = remember {
         Navigator(if (repo.state.value.onboardingDone) Screen.Home else Screen.Onboarding(firstRun = true))
     }
     BackHandler(enabled = nav.canPop) { nav.pop() }
+
+    var quickRequest by remember { androidx.compose.runtime.mutableStateOf<QuickRequest?>(null) }
+    androidx.compose.runtime.LaunchedEffect(launchAction) {
+        val action = launchAction ?: return@LaunchedEffect
+        // Abaikan aksi luar sebelum onboarding selesai
+        if (repo.state.value.onboardingDone) {
+            when (action) {
+                is LaunchAction.QuickExpense -> {
+                    nav.resetTo(Screen.Home)
+                    quickRequest = QuickRequest(action.tripId)
+                }
+                is LaunchAction.OpenTrip -> {
+                    nav.resetTo(Screen.Home)
+                    if (repo.state.value.trip(action.tripId) != null) nav.push(Screen.TripDetail(action.tripId))
+                }
+                LaunchAction.NewTrip -> {
+                    nav.resetTo(Screen.Home)
+                    nav.push(Screen.TripEdit(null))
+                }
+            }
+        }
+        onLaunchHandled()
+    }
 
     // Surface menetapkan LocalContentColor = onBackground, sehingga teks tanpa warna
     // eksplisit tetap terbaca di mode gelap.
@@ -100,6 +136,8 @@ fun PerjadinApp(repo: Repository) {
                 onTutorial = { nav.push(Screen.Onboarding(firstRun = false)) },
                 onLoadDemo = repo::loadDemo,
                 onSaveExpense = repo::upsertExpense,
+                quickRequest = quickRequest,
+                onQuickHandled = { quickRequest = null },
                 onCreateCategory = repo::upsertCategory,
             )
 

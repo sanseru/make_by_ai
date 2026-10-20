@@ -233,6 +233,17 @@ data class AppData(
 
     val categories: List<Category> get() = storedCategories.ifEmpty { Category.BUILT_INS }
 
+    /**
+     * Perjalanan yang paling relevan hari ini (untuk widget & catat cepat):
+     * yang sedang berlangsung → yang akan datang terdekat → yang terakhir selesai tapi belum dilaporkan.
+     */
+    fun focusTrip(today: Long): Trip? {
+        val open = trips.filter { it.status != TripStatus.REPORTED }
+        return open.filter { today in it.startDay..it.endDay || it.status == TripStatus.ONGOING }.maxByOrNull { it.startDay }
+            ?: open.filter { it.startDay > today }.minByOrNull { it.startDay }
+            ?: open.maxByOrNull { it.endDay }
+    }
+
     /** Semua pengeluaran dari seluruh perjalanan, terbaru dulu (untuk riwayat isian cepat). */
     val expenseHistory: List<Expense>
         get() = trips.sortedByDescending { it.updatedAt }.flatMap { it.expenses.reversed() }

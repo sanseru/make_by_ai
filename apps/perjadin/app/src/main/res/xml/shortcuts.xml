@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_expense"
+        android:shortcutId="quick_expense"
+        android:shortcutLongLabel="@string/shortcut_expense_long"
+        android:shortcutShortLabel="@string/shortcut_expense_short">
+        <intent
+            android:action="id.abati.perjadin.QUICK_EXPENSE"
+            android:targetClass="id.abati.perjadin.MainActivity"
+            android:targetPackage="id.abati.perjadin" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_trip"
+        android:shortcutId="new_trip"
+        android:shortcutLongLabel="@string/shortcut_trip_long"
+        android:shortcutShortLabel="@string/shortcut_trip_short">
+        <intent
+            android:action="id.abati.perjadin.NEW_TRIP"
+            android:targetClass="id.abati.perjadin.MainActivity"
+            android:targetPackage="id.abati.perjadin" />
+    </shortcut>
+</shortcuts>

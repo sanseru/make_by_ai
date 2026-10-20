@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.updateAndGet
 import org.json.JSONObject
+import id.abati.perjadin.widget.TripWidget
 import java.io.File
 import java.time.LocalDate
 import java.util.concurrent.Executors
@@ -16,9 +17,9 @@ import java.util.concurrent.Executors
  * State di-update sinkron di memori; penulisan ke disk dilakukan berurutan
  * pada satu thread background dengan AtomicFile agar file tidak korup.
  */
-class Repository private constructor(dir: File) {
+class Repository private constructor(private val appContext: Context) {
 
-    private val file = AtomicFile(File(dir, "perjadin-data.json"))
+    private val file = AtomicFile(File(appContext.filesDir, "perjadin-data.json"))
     private val writer = Executors.newSingleThreadExecutor()
     private val _state = MutableStateFlow(load())
     val state: StateFlow<AppData> = _state.asStateFlow()
@@ -36,6 +37,8 @@ class Repository private constructor(dir: File) {
             try {
                 out.write(json.toByteArray(Charsets.UTF_8))
                 file.finishWrite(out)
+                // Segarkan widget layar utama setiap data berubah
+                TripWidget.updateAll(appContext)
             } catch (e: Exception) {
                 file.failWrite(out)
             }
@@ -131,7 +134,7 @@ class Repository private constructor(dir: File) {
         private var instance: Repository? = null
 
         fun get(context: Context): Repository = instance ?: synchronized(this) {
-            instance ?: Repository(context.applicationContext.filesDir).also { instance = it }
+            instance ?: Repository(context.applicationContext).also { instance = it }
         }
     }
 }
