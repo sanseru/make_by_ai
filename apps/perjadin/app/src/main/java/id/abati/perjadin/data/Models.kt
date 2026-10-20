@@ -74,6 +74,10 @@ data class Profile(
     val company: String = "",
     val approverName: String = "",
     val approverTitle: String = "",
+    /** Nama file tanda tangan (PNG) di folder branding/, kosong = belum ada. */
+    val signatureFile: String = "",
+    /** Nama file logo perusahaan di folder branding/, kosong = tanpa logo. */
+    val logoFile: String = "",
 ) {
     val isComplete: Boolean get() = name.isNotBlank() && department.isNotBlank()
 }
@@ -153,6 +157,13 @@ data class Trip(
     val expenses: List<Expense> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
+    /** Tanggal laporan diajukan ke kantor (epoch day), -1 = belum. */
+    val submittedDay: Long = -1,
+    /** Tanggal reimburse dibayar / sisa uang muka dikembalikan, -1 = belum selesai. */
+    val settledDay: Long = -1,
+    /** Nominal yang benar-benar diterima / dikembalikan saat penyelesaian. */
+    val settledAmount: Long = 0,
+    val settlementNote: String = "",
 ) {
     val totalBudget: Long get() = budgets.sumOf { it.amount }
     val totalActual: Long get() = expenses.sumOf { it.amount }
@@ -164,6 +175,13 @@ data class Trip(
 
     /** Positif = sisa uang muka dikembalikan, negatif = kantor membayar kekurangan. */
     val settlement: Long get() = advance - totalActual
+
+    /** Positif = kantor wajib membayar ke pegawai (reimburse), negatif = pegawai mengembalikan ke kantor. */
+    val amountDueToEmployee: Long get() = totalActual - advance
+    val isSubmitted: Boolean get() = submittedDay >= 0
+    val isSettled: Boolean get() = settledDay >= 0
+    /** Masih ada uang yang harus diselesaikan dengan kantor. */
+    val needsSettlement: Boolean get() = !isSettled && amountDueToEmployee != 0L && (totalActual > 0 || advance > 0)
 
     fun budgetFor(categoryId: String): Long = budgets.filter { it.categoryId == categoryId }.sumOf { it.amount }
     fun actualFor(categoryId: String): Long = expenses.filter { it.categoryId == categoryId }.sumOf { it.amount }
@@ -207,6 +225,9 @@ data class AppData(
     /** Semua kategori (bawaan & buatan pengguna) yang bisa diubah. Kosong = pakai bawaan. */
     val storedCategories: List<Category> = emptyList(),
     val onboardingDone: Boolean = false,
+    val reminderEnabled: Boolean = false,
+    /** Jam pengingat harian (0–23). */
+    val reminderHour: Int = 20,
 ) {
     fun trip(id: String): Trip? = trips.firstOrNull { it.id == id }
 
@@ -228,11 +249,13 @@ fun Profile.toJson() = JSONObject()
     .put("name", name).put("employeeId", employeeId).put("position", position)
     .put("department", department).put("company", company)
     .put("approverName", approverName).put("approverTitle", approverTitle)
+    .put("signatureFile", signatureFile).put("logoFile", logoFile)
 
 fun profileFromJson(o: JSONObject?) = if (o == null) Profile() else Profile(
     name = o.str("name"), employeeId = o.str("employeeId"), position = o.str("position"),
     department = o.str("department"), company = o.str("company"),
     approverName = o.str("approverName"), approverTitle = o.str("approverTitle"),
+    signatureFile = o.str("signatureFile"), logoFile = o.str("logoFile"),
 )
 
 fun BudgetItem.toJson() = JSONObject()
@@ -266,6 +289,8 @@ fun Trip.toJson(): JSONObject = JSONObject()
     .put("budgets", JSONArray(budgets.map { it.toJson() }))
     .put("expenses", JSONArray(expenses.map { it.toJson() }))
     .put("createdAt", createdAt).put("updatedAt", updatedAt)
+    .put("submittedDay", submittedDay).put("settledDay", settledDay)
+    .put("settledAmount", settledAmount).put("settlementNote", settlementNote)
 
 private inline fun <T> JSONArray?.mapObjects(f: (JSONObject) -> T): List<T> =
     if (this == null) emptyList() else (0 until length()).map { f(getJSONObject(it)) }
@@ -279,6 +304,8 @@ fun tripFromJson(o: JSONObject) = Trip(
     budgets = o.optJSONArray("budgets").mapObjects(::budgetFromJson),
     expenses = o.optJSONArray("expenses").mapObjects(::expenseFromJson),
     createdAt = o.optLong("createdAt"), updatedAt = o.optLong("updatedAt"),
+    submittedDay = o.optLong("submittedDay", -1), settledDay = o.optLong("settledDay", -1),
+    settledAmount = o.optLong("settledAmount"), settlementNote = o.str("settlementNote"),
 )
 
 fun Category.toJson() = JSONObject()
@@ -295,6 +322,7 @@ fun AppData.toJson(): JSONObject = JSONObject()
     .put("categories", JSONArray(storedCategories.map { it.toJson() }))
     .put("profile", profile.toJson())
     .put("onboardingDone", onboardingDone)
+    .put("reminderEnabled", reminderEnabled).put("reminderHour", reminderHour)
     .put("trips", JSONArray(trips.map { it.toJson() }))
 
 fun appDataFromJson(o: JSONObject) = AppData(
@@ -305,4 +333,6 @@ fun appDataFromJson(o: JSONObject) = AppData(
         if (o.optInt("version", 1) < 3 && list.isNotEmpty()) Category.BUILT_INS + list else list
     },
     onboardingDone = o.optBoolean("onboardingDone", false),
+    reminderEnabled = o.optBoolean("reminderEnabled", false),
+    reminderHour = o.optInt("reminderHour", 20),
 )

@@ -56,7 +56,12 @@ fun PerjadinApp(repo: Repository) {
     val data by repo.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
     // Bersihkan foto struk yatim (mis. foto diambil lalu batal disimpan) sekali saat app dibuka
-    androidx.compose.runtime.LaunchedEffect(Unit) { repo.cleanupReceipts(id.abati.perjadin.util.ReceiptStore.dir(context)) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        repo.cleanupReceipts(id.abati.perjadin.util.ReceiptStore.dir(context))
+        // Pastikan jadwal pengingat tetap ada (mis. setelah update aplikasi)
+        val d = repo.state.value
+        id.abati.perjadin.reminder.Reminders.schedule(context, d.reminderEnabled, d.reminderHour, replace = false)
+    }
     val nav = remember {
         Navigator(if (repo.state.value.onboardingDone) Screen.Home else Screen.Onboarding(firstRun = true))
     }

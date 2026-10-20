@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Luggage
 import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
@@ -156,6 +157,28 @@ fun HomeScreen(
         ) {
             item { OverviewCard(data.trips) }
 
+            // Pengingat uang yang belum diselesaikan dengan kantor
+            val owed = data.trips.filter { it.needsSettlement && it.amountDueToEmployee > 0 }
+            val toReturn = data.trips.filter { it.needsSettlement && it.amountDueToEmployee < 0 }
+            if (owed.isNotEmpty()) {
+                item {
+                    SettlementBanner(
+                        text = "Menunggu reimburse dari kantor: ${Fmt.rupiah(owed.sumOf { it.amountDueToEmployee })}",
+                        detail = owed.joinToString(", ") { it.odrNumber },
+                        onClick = { onOpenTrip(owed.first().id) },
+                    )
+                }
+            }
+            if (toReturn.isNotEmpty()) {
+                item {
+                    SettlementBanner(
+                        text = "Sisa uang muka perlu dikembalikan: ${Fmt.rupiah(-toReturn.sumOf { it.amountDueToEmployee })}",
+                        detail = toReturn.joinToString(", ") { it.odrNumber },
+                        onClick = { onOpenTrip(toReturn.first().id) },
+                    )
+                }
+            }
+
             if (!data.profile.isComplete) {
                 item {
                     Surface(onClick = onSettings, color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
@@ -249,6 +272,20 @@ fun HomeScreen(
             onCreateCategory = onCreateCategory,
             onDismiss = { quickTripId = null },
         )
+    }
+}
+
+@Composable
+private fun SettlementBanner(text: String, detail: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.medium) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Payments, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(text, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer, style = MaterialTheme.typography.bodyMedium)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 

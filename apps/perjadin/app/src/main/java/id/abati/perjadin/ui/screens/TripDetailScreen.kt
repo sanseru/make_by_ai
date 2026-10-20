@@ -100,6 +100,7 @@ fun TripDetailScreen(
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var duplicate by remember { mutableStateOf(false) }
+    var settlementDialog by remember { mutableStateOf(false) }
     // null = dialog tertutup; BudgetItem tanpa id lama = tambah baru
     var budgetDialog by remember { mutableStateOf<BudgetItem?>(null) }
     var budgetDialogNew by remember { mutableStateOf(false) }
@@ -178,7 +179,7 @@ fun TripDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 when (tab) {
-                    0 -> overviewTab(trip, categories, onStatus = { repo.setStatus(trip.id, it) }, onReport = onReport)
+                    0 -> overviewTab(trip, categories, onStatus = { repo.setStatus(trip.id, it) }, onReport = onReport, onSettlement = { settlementDialog = true })
                     1 -> budgetTab(trip, categories, onClick = { budgetDialogNew = false; budgetDialog = it }, onAdd = { budgetDialogNew = true; budgetDialog = BudgetItem() })
                     else -> expenseTab(trip, categories, onClick = onEditExpense, onAdd = onAddExpense)
                 }
@@ -208,6 +209,14 @@ fun TripDetailScreen(
             onDelete = { repo.deleteExpense(trip.id, it.id) },
             onCreateCategory = repo::upsertCategory,
             onDismiss = { expenseSheet = null },
+        )
+    }
+
+    if (settlementDialog) {
+        SettlementDialog(
+            trip = trip,
+            onDismiss = { settlementDialog = false },
+            onSave = { submitted, settled, amount, note -> repo.updateSettlement(trip.id, submitted, settled, amount, note) },
         )
     }
 
@@ -287,7 +296,13 @@ private fun WhiteCard(content: @Composable () -> Unit) {
 
 // ---------------- Tab Ringkasan ----------------
 
-private fun LazyListScope.overviewTab(trip: Trip, categories: List<Category>, onStatus: (TripStatus) -> Unit, onReport: () -> Unit) {
+private fun LazyListScope.overviewTab(
+    trip: Trip,
+    categories: List<Category>,
+    onStatus: (TripStatus) -> Unit,
+    onReport: () -> Unit,
+    onSettlement: () -> Unit,
+) {
     item {
         androidx.compose.material3.FilledTonalButton(onClick = onReport, modifier = Modifier.fillMaxWidth().height(48.dp)) {
             Icon(Icons.Filled.PictureAsPdf, null, modifier = Modifier.size(18.dp))
@@ -336,21 +351,8 @@ private fun LazyListScope.overviewTab(trip: Trip, categories: List<Category>, on
             }
         }
     }
-    if (trip.advance > 0) {
-        item {
-            WhiteCard {
-                SectionTitle("Penyelesaian Uang Muka", subtitle = "Perhitungan untuk settlement dengan bagian keuangan")
-                InfoRow("Uang muka diterima", Fmt.rupiah(trip.advance))
-                InfoRow("Total realisasi", Fmt.rupiah(trip.totalActual))
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                val s = trip.settlement
-                when {
-                    s > 0 -> InfoRow("Dikembalikan ke kantor", Fmt.rupiah(s), valueColor = MaterialTheme.colorScheme.primary)
-                    s < 0 -> InfoRow("Kekurangan (reimburse)", Fmt.rupiah(-s), valueColor = Danger)
-                    else -> InfoRow("Selisih", "Lunas, tidak ada selisih", valueColor = Success)
-                }
-            }
-        }
+    if (trip.advance > 0 || trip.totalActual > 0) {
+        item { SettlementCard(trip, onEdit = onSettlement) }
     }
     item {
         WhiteCard {

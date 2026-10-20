@@ -62,6 +62,12 @@ private val faqs = listOf(
         "Buka perjalanan → tab Anggaran → ketuk item anggaran (ikon pensil) untuk mengubah kategori, uraian, atau nominal, atau menghapusnya.",
     "Bisakah saya menambah kategori sendiri?" to
         "Bisa. Saat mengisi anggaran / pengeluaran, ketuk \"Tambah kategori baru\" di bawah pilihan kategori, atau buka Pengaturan → Kategori Biaya. Atur nama, contoh isian, warna, dan ikon. Semua kategori (termasuk bawaan) bisa diubah nama, ikon, dan warnanya, dan bisa dihapus selama belum dipakai.",
+    "Bagaimana melacak reimburse yang belum dibayar?" to
+        "Di tab Ringkasan ada kartu \"Penyelesaian & Reimburse\". Tekan \"Perbarui Status Reimburse\" untuk mencatat tanggal laporan diajukan, tanggal dibayar, dan nominal yang benar-benar diterima. Selama belum selesai, Beranda menampilkan total uang yang masih menunggu reimburse atau yang perlu dikembalikan.",
+    "Bagaimana menambahkan logo dan tanda tangan di PDF?" to
+        "Buka Pengaturan → \"Logo & Tanda Tangan\". Pilih logo dari galeri (sebaiknya PNG transparan) dan gambar tanda tangan dengan jari. Keduanya otomatis tercetak di kop dan kolom \"Dilaporkan oleh\" pada laporan PDF.",
+    "Bagaimana mengaktifkan pengingat?" to
+        "Pengaturan → Pengingat → aktifkan \"Pengingat harian\" dan pilih jamnya. Selama dinas, Anda diingatkan jika belum mencatat pengeluaran hari itu; setelah pulang, diingatkan jika laporan belum ditandai \"Dilaporkan\". Izinkan notifikasi saat diminta.",
     "Bagaimana mengirim laporan ke WhatsApp atau Email?" to
         "Buka perjalanan → tombol \"Buat Laporan PDF\" → pilih \"Kirim via WhatsApp\" atau \"Kirim via Email\". File PDF otomatis terlampir beserta pesan pengantar yang bisa Anda ubah sebelum dikirim.",
     "Di mana data saya disimpan? Apakah butuh internet?" to

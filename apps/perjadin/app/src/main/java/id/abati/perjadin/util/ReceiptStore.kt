@@ -63,6 +63,42 @@ object ReceiptStore {
         return name
     }
 
+    // ---------- Logo & tanda tangan (folder branding/) ----------
+
+    fun brandingFile(context: Context, name: String): File =
+        File(File(context.filesDir, "branding").apply { mkdirs() }, name)
+
+    /** Menyimpan logo dari galeri sebagai PNG (transparansi tetap terjaga), maks 512px. */
+    fun saveLogo(context: Context, uri: Uri): String {
+        val cr = context.contentResolver
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        require(bounds.outWidth > 0) { "Gambar tidak bisa dibaca" }
+        var sample = 1
+        while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 512) sample *= 2
+        val bmp = cr.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+        } ?: error("Gambar tidak bisa dibaca")
+        return savePng(context, bmp, "logo")
+    }
+
+    /** Menyimpan bitmap sebagai PNG baru di branding/ dengan nama unik (agar cache gambar ter-refresh). */
+    fun savePng(context: Context, bitmap: Bitmap, prefix: String): String {
+        val name = "${prefix}_${System.currentTimeMillis()}.png"
+        FileOutputStream(brandingFile(context, name)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return name
+    }
+
+    fun loadBranding(context: Context, name: String): Bitmap? {
+        if (name.isBlank()) return null
+        val f = brandingFile(context, name)
+        return if (f.exists()) BitmapFactory.decodeFile(f.path) else null
+    }
+
+    fun deleteBranding(context: Context, name: String) {
+        if (name.isNotBlank()) brandingFile(context, name).delete()
+    }
+
     /** Memuat foto dengan sisi terpanjang kira-kira [maxPx] (hemat memori). */
     fun load(context: Context, name: String, maxPx: Int): Bitmap? {
         val f = file(context, name)

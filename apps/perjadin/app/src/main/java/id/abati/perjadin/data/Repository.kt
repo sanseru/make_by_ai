@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.updateAndGet
 import org.json.JSONObject
 import java.io.File
+import java.time.LocalDate
 import java.util.concurrent.Executors
 
 /**
@@ -66,7 +67,16 @@ class Repository private constructor(dir: File) {
 
     fun deleteTrip(id: String) = update { d -> d.copy(trips = d.trips.filterNot { it.id == id }) }
 
-    fun setStatus(tripId: String, status: TripStatus) = updateTrip(tripId) { it.copy(status = status) }
+    /** Menandai "Dilaporkan" otomatis mengisi tanggal pengajuan jika belum ada. */
+    fun setStatus(tripId: String, status: TripStatus) = updateTrip(tripId) { t ->
+        val submitted = if (status == TripStatus.REPORTED && !t.isSubmitted) LocalDate.now().toEpochDay() else t.submittedDay
+        t.copy(status = status, submittedDay = submitted)
+    }
+
+    fun updateSettlement(tripId: String, submittedDay: Long, settledDay: Long, settledAmount: Long, note: String) =
+        updateTrip(tripId) { it.copy(submittedDay = submittedDay, settledDay = settledDay, settledAmount = settledAmount, settlementNote = note) }
+
+    fun setReminder(enabled: Boolean, hour: Int) = update { it.copy(reminderEnabled = enabled, reminderHour = hour) }
 
     fun upsertBudget(tripId: String, item: BudgetItem) = updateTrip(tripId) { t ->
         val list = if (t.budgets.any { it.id == item.id }) t.budgets.map { if (it.id == item.id) item else it } else t.budgets + item

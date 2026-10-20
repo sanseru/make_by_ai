@@ -42,7 +42,11 @@ object PdfReport {
         val file = File(dir, fileName(trip))
         val doc = PdfDocument()
         try {
-            ReportLayout(doc, trip, profile, categories, options) { ReceiptStore.load(context, it, 900) }.render()
+            ReportLayout(
+                doc, trip, profile, categories, options,
+                logo = ReceiptStore.loadBranding(context, profile.logoFile),
+                signature = if (options.includeSignature) ReceiptStore.loadBranding(context, profile.signatureFile) else null,
+            ) { ReceiptStore.load(context, it, 900) }.render()
             FileOutputStream(file).use { doc.writeTo(it) }
         } finally {
             doc.close()
@@ -59,6 +63,8 @@ private class ReportLayout(
     private val profile: Profile,
     private val categories: List<Category>,
     private val opt: PdfReport.Options,
+    private val logo: Bitmap?,
+    private val signature: Bitmap?,
     private val loadPhoto: (String) -> Bitmap?,
 ) {
     // A4 dalam point (1/72 inci)
@@ -175,9 +181,19 @@ private class ReportLayout(
         canvas.drawRoundRect(RectF(margin, y, pageW - margin, y + h), 6f, 6f, fillPaint)
         val title = paint(14f, bold = true, color = white)
         val sub = paint(8.5f, color = 0xFFCCFBF1.toInt())
-        canvas.drawText(profile.company.ifBlank { "LAPORAN PERJALANAN DINAS" }.uppercase(), margin + 14f, y + 24f, title)
-        canvas.drawText("Laporan Pertanggungjawaban Perjalanan Dinas", margin + 14f, y + 40f, paint(10f, color = white))
-        canvas.drawText("Dicetak: ${Fmt.dateLong(Fmt.today())}", margin + 14f, y + 56f, sub)
+
+        // Logo di kotak putih sebelah kiri kop; teks bergeser ke kanan bila ada logo
+        var textX = margin + 14f
+        if (logo != null) {
+            val box = RectF(margin + 10f, y + 10f, margin + 60f, y + h - 10f)
+            fillPaint.color = white
+            canvas.drawRoundRect(box, 4f, 4f, fillPaint)
+            drawFitted(logo, RectF(box.left + 3f, box.top + 3f, box.right - 3f, box.bottom - 3f))
+            textX = box.right + 12f
+        }
+        canvas.drawText(profile.company.ifBlank { "LAPORAN PERJALANAN DINAS" }.uppercase(), textX, y + 24f, title)
+        canvas.drawText("Laporan Pertanggungjawaban Perjalanan Dinas", textX, y + 40f, paint(10f, color = white))
+        canvas.drawText("Dicetak: ${Fmt.dateLong(Fmt.today())}", textX, y + 56f, sub)
 
         val odrLabel = "No. ODR"
         val right = pageW - margin - 14f
@@ -185,6 +201,16 @@ private class ReportLayout(
         drawAligned(trip.odrNumber, paint(11f, bold = true, color = white), 0f, right, y + 40f, Align.R)
         drawAligned("Status: ${trip.status.label}", sub, 0f, right, y + 56f, Align.R)
         y += h + 18f
+    }
+
+    /** Menggambar bitmap sebesar mungkin di dalam [box] dengan rasio asli, rata tengah. */
+    private fun drawFitted(bmp: Bitmap, box: RectF) {
+        val scale = minOf(box.width() / bmp.width, box.height() / bmp.height)
+        val w = bmp.width * scale
+        val h = bmp.height * scale
+        val left = box.left + (box.width() - w) / 2
+        val top = box.top + (box.height() - h) / 2
+        canvas.drawBitmap(bmp, null, RectF(left, top, left + w, top + h), Paint(Paint.FILTER_BITMAP_FLAG))
     }
 
     private fun sectionTitle(text: String) {
@@ -458,6 +484,10 @@ private class ReportLayout(
             val r = l + colW
             drawAligned(role, body, l, r, y + body.textSize, Align.C)
             val lineY = y + 70f
+            // Tanda tangan digital pelapor (kolom kiri), di atas garis
+            if (i == 0 && signature != null) {
+                drawFitted(signature, RectF(l + 50f, y + 16f, r - 50f, lineY - 2f))
+            }
             canvas.drawLine(l + 40f, lineY, r - 40f, lineY, strokePaint)
             drawAligned(name.ifBlank { "(.................................)" }, bodyBold, l, r, lineY + 12f, Align.C)
             if (sub.isNotBlank()) drawAligned(sub, small, l, r, lineY + 24f, Align.C)

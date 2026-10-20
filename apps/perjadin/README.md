@@ -13,8 +13,10 @@ yang bisa langsung dikirim ke WhatsApp / Email.
 | Anggaran & kategori | Plafon per kategori: nominal tetap, per hari, per malam (otomatis ikut tanggal), atau jumlah × tarif. Semua kategori (bawaan & buatan sendiri) bisa diubah nama/ikon/warna |
 | Pengeluaran | Tombol cepat di Beranda + form bottom sheet (nominal → kategori → simpan), "Simpan & Tambah Lagi", isi cepat dari riwayat, foto struk (kamera/galeri), peringatan jika melebihi anggaran |
 | Ringkasan | Anggaran vs realisasi per kategori, % serapan, sisa / kelebihan, settlement uang muka |
-| Laporan PDF (A4) | Kop perusahaan, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan, lampiran foto struk |
+| Laporan PDF (A4) | Kop perusahaan + logo, tanda tangan digital, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan, lampiran foto struk |
 | Berbagi | Kirim via WhatsApp, Email (PDF terlampir + pesan pengantar), aplikasi lain, lihat, simpan file |
+| Status reimburse | Catat tanggal diajukan, tanggal dibayar & nominal diterima; Beranda menampilkan total yang masih menunggu |
+| Pengingat | Notifikasi harian: belum catat pengeluaran saat dinas, laporan belum dikirim setelah pulang |
 | Onboarding & FAQ | Tutorial 5 langkah, data contoh, FAQ, placeholder berisi contoh input |
 | Data lokal | JSON di internal storage (AtomicFile), ekspor / impor backup |
 

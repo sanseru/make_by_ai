@@ -209,7 +209,7 @@ fun ReportScreen(
                 OptionSwitch("Rincian anggaran", "Daftar plafon per item", includeBudget) { includeBudget = it }
                 OptionSwitch("Rincian pengeluaran", "Tabel transaksi + no. bukti", includeExpenses) { includeExpenses = it }
                 OptionSwitch("Catatan perjalanan", "Tampilkan kolom catatan", includeNotes) { includeNotes = it }
-                OptionSwitch("Kolom tanda tangan", "Pelapor & atasan penyetuju", includeSignature) { includeSignature = it }
+                OptionSwitch("Kolom tanda tangan", if (profile.signatureFile.isNotBlank()) "Termasuk tanda tangan digital Anda" else "Pelapor & atasan (buat tanda tangan digital di Pengaturan)", includeSignature) { includeSignature = it }
                 OptionSwitch(
                     "Lampiran foto struk",
                     if (photoCount > 0) "$photoCount foto, di halaman terpisah" else "Belum ada foto struk",
