@@ -21,6 +21,7 @@ import id.abati.perjadin.R
 import id.abati.perjadin.data.Repository
 import id.abati.perjadin.data.TripStatus
 import id.abati.perjadin.util.Fmt
+import id.abati.perjadin.widget.TripWidget
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
@@ -119,7 +120,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
             )
         }
         // Sekalian segarkan widget karena "perjalanan aktif" bergantung pada tanggal
-        id.abati.perjadin.widget.TripWidget.updateAll(applicationContext)
+        TripWidget.updateAll(applicationContext)
         return Result.success()
     }
 }

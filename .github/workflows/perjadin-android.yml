@@ -47,7 +47,7 @@ jobs:
       - name: Unit test & build APK
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleRelease --no-daemon --stacktrace
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/Perjadin-v1.1.0-build${GITHUB_RUN_NUMBER}.apk"
           ls -la dist
@@ -98,7 +98,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: apps/perjadin
-          script: chmod +x gradlew && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+          script: chmod +x gradlew && ./gradlew connectedDebugAndroidTest --no-daemon
 
       - name: Upload hasil instrumented test
         if: always()
