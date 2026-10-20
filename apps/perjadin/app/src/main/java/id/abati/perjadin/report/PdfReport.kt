@@ -6,7 +6,9 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import id.abati.perjadin.data.Category
 import id.abati.perjadin.data.Profile
+import id.abati.perjadin.data.find
 import id.abati.perjadin.data.Trip
 import id.abati.perjadin.util.Fmt
 import java.io.File
@@ -31,13 +33,13 @@ object PdfReport {
         return "Laporan_Perjadin_$odr.pdf"
     }
 
-    fun generate(context: Context, trip: Trip, profile: Profile, options: Options): File {
+    fun generate(context: Context, trip: Trip, profile: Profile, categories: List<Category>, options: Options): File {
         val dir = File(context.cacheDir, "reports").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() } // hanya simpan laporan terakhir di cache
         val file = File(dir, fileName(trip))
         val doc = PdfDocument()
         try {
-            ReportLayout(doc, trip, profile, options).render()
+            ReportLayout(doc, trip, profile, categories, options).render()
             FileOutputStream(file).use { doc.writeTo(it) }
         } finally {
             doc.close()
@@ -52,6 +54,7 @@ private class ReportLayout(
     private val doc: PdfDocument,
     private val trip: Trip,
     private val profile: Profile,
+    private val categories: List<Category>,
     private val opt: PdfReport.Options,
 ) {
     // A4 dalam point (1/72 inci)
@@ -270,13 +273,13 @@ private class ReportLayout(
 
     private fun recap() {
         sectionTitle("B. Rekapitulasi Anggaran vs Realisasi")
-        val cats = trip.activeCategories
+        val cats = trip.activeCategories(categories)
         val rows = cats.map { c ->
-            val b = trip.budgetFor(c)
-            val a = trip.actualFor(c)
+            val b = trip.budgetFor(c.id)
+            val a = trip.actualFor(c.id)
             listOf(c.label, Fmt.rupiah(b), Fmt.rupiah(a), Fmt.rupiah(b - a), Fmt.percent(a, b))
         }
-        val colors = cats.map { c -> if (trip.actualFor(c) > trip.budgetFor(c)) red else null }
+        val colors = cats.map { c -> if (trip.actualFor(c.id) > trip.budgetFor(c.id)) red else null }
         if (rows.isEmpty()) {
             ensure(20f)
             canvas.drawText("Belum ada anggaran maupun pengeluaran.", margin, y + 10f, small)
@@ -342,8 +345,8 @@ private class ReportLayout(
             headers = listOf("No", "Kategori", "Uraian", "Jumlah"),
             widths = listOf(28f, 120f, 262f, 105f),
             aligns = listOf(Align.C, Align.L, Align.L, Align.R),
-            rows = trip.budgets.sortedBy { it.category.ordinal }.mapIndexed { i, b ->
-                listOf("${i + 1}", b.category.label, b.description.ifBlank { "-" }, Fmt.rupiah(b.amount))
+            rows = trip.budgets.sortedBy { b -> categories.indexOfFirst { it.id == b.categoryId }.let { if (it < 0) Int.MAX_VALUE else it } }.mapIndexed { i, b ->
+                listOf("${i + 1}", categories.find(b.categoryId).label, b.description.ifBlank { "-" }, Fmt.rupiah(b.amount))
             },
             footer = listOf("", "", "TOTAL ANGGARAN", Fmt.rupiah(trip.totalBudget)),
         )
@@ -364,7 +367,7 @@ private class ReportLayout(
             rows = trip.expenses.mapIndexed { i, e ->
                 val desc = if (e.note.isBlank()) e.description else "${e.description}\n(${e.note})"
                 val pay = if (e.receiptNo.isBlank()) e.paymentMethod else "${e.paymentMethod}\n${e.receiptNo}"
-                listOf("${i + 1}", Fmt.date(e.day), e.category.label, desc, pay, Fmt.rupiah(e.amount))
+                listOf("${i + 1}", Fmt.date(e.day), categories.find(e.categoryId).label, desc, pay, Fmt.rupiah(e.amount))
             },
             footer = listOf("", "", "", "TOTAL REALISASI", "", Fmt.rupiah(trip.totalActual)),
         )

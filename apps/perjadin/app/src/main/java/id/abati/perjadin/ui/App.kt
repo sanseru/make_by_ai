@@ -9,6 +9,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +61,9 @@ fun PerjadinApp(repo: Repository) {
     }
     BackHandler(enabled = nav.canPop) { nav.pop() }
 
+    // Surface menetapkan LocalContentColor = onBackground, sehingga teks tanpa warna
+    // eksplisit tetap terbaca di mode gelap.
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     AnimatedContent(
         targetState = nav.current,
         transitionSpec = {
@@ -120,6 +125,7 @@ fun PerjadinApp(repo: Repository) {
                 } else {
                     TripDetailScreen(
                         trip = trip,
+                        categories = data.categories,
                         repo = repo,
                         onBack = nav::pop,
                         onEdit = { nav.push(Screen.TripEdit(trip.id)) },
@@ -138,6 +144,8 @@ fun PerjadinApp(repo: Repository) {
                 } else {
                     ExpenseEditScreen(
                         trip = trip,
+                        categories = data.categories,
+                        onCreateCategory = repo::upsertCategory,
                         expense = screen.expenseId?.let { id -> trip.expenses.firstOrNull { it.id == id } },
                         onBack = nav::pop,
                         onSave = { e ->
@@ -160,6 +168,7 @@ fun PerjadinApp(repo: Repository) {
                     ReportScreen(
                         trip = trip,
                         profile = data.profile,
+                        categories = data.categories,
                         onBack = nav::pop,
                         onMarkReported = { repo.setStatus(trip.id, it) },
                         onOpenSettings = { nav.push(Screen.Settings) },
@@ -167,5 +176,6 @@ fun PerjadinApp(repo: Repository) {
                 }
             }
         }
+    }
     }
 }

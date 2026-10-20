@@ -6,20 +6,44 @@ import java.util.UUID
 
 fun newId(): String = UUID.randomUUID().toString()
 
-/** Kategori biaya perjalanan dinas. [color] dipakai di UI dan PDF. */
-enum class Category(val label: String, val example: String, val color: Long) {
-    TRANSPORT("Tiket Transportasi", "Contoh: Tiket pesawat Jakarta–Medan PP", 0xFF2563EB),
-    HOTEL("Penginapan", "Contoh: Hotel Santika Medan 3 malam", 0xFF7C3AED),
-    PER_DIEM("Uang Harian", "Contoh: Uang harian 4 hari × Rp150.000", 0xFF0F766E),
-    MEAL("Konsumsi", "Contoh: Makan siang dengan tim cabang", 0xFFEA580C),
-    LOCAL_TRANSPORT("Transport Lokal", "Contoh: Taksi bandara Kualanamu → hotel", 0xFFCA8A04),
-    COMMUNICATION("Komunikasi", "Contoh: Paket data / pulsa selama dinas", 0xFF0891B2),
-    OTHER("Lain-lain", "Contoh: Laundry, bagasi tambahan, fotokopi", 0xFF64748B);
-
+/**
+ * Kategori biaya. Kategori bawaan memakai id lama (nama enum versi 1) agar data
+ * lama tetap kompatibel; kategori buatan pengguna memakai id acak & [builtIn] = false.
+ * [icon] adalah kunci ikon (lihat CategoryIcons di UI), [color] warna ARGB.
+ */
+data class Category(
+    val id: String,
+    val label: String,
+    val example: String,
+    val color: Long,
+    val icon: String,
+    val builtIn: Boolean = false,
+) {
     companion object {
-        fun of(name: String?): Category = entries.firstOrNull { it.name == name } ?: OTHER
+        val BUILT_INS = listOf(
+            Category("TRANSPORT", "Tiket Transportasi", "Contoh: Tiket pesawat Jakarta–Medan PP", 0xFF2563EB, "flight", true),
+            Category("HOTEL", "Penginapan", "Contoh: Hotel Santika Medan 3 malam", 0xFF7C3AED, "hotel", true),
+            Category("PER_DIEM", "Uang Harian", "Contoh: Uang harian 4 hari × Rp150.000", 0xFF0F766E, "wallet", true),
+            Category("MEAL", "Konsumsi", "Contoh: Makan siang dengan tim cabang", 0xFFEA580C, "meal", true),
+            Category("LOCAL_TRANSPORT", "Transport Lokal", "Contoh: Taksi bandara Kualanamu → hotel", 0xFFCA8A04, "taxi", true),
+            Category("COMMUNICATION", "Komunikasi", "Contoh: Paket data / pulsa selama dinas", 0xFF0891B2, "wifi", true),
+            Category("OTHER", "Lain-lain", "Contoh: Laundry, bagasi tambahan, fotokopi", 0xFF64748B, "more", true),
+        )
+        const val OTHER_ID = "OTHER"
+
+        /** Pengganti untuk id yang tidak dikenal (mis. kategori sudah dihapus). */
+        fun unknown(id: String) = Category(id, "Kategori terhapus", "", 0xFF94A3B8, "more")
     }
 }
+
+/** Cari kategori berdasarkan id; id tak dikenal menjadi "Kategori terhapus". */
+fun List<Category>.find(id: String): Category = firstOrNull { it.id == id } ?: Category.unknown(id)
+
+/** Daftar warna pilihan untuk kategori buatan pengguna. */
+val CATEGORY_COLORS = listOf(
+    0xFF2563EB, 0xFF7C3AED, 0xFF0F766E, 0xFFEA580C, 0xFFCA8A04,
+    0xFF0891B2, 0xFFDB2777, 0xFF16A34A, 0xFFDC2626, 0xFF64748B,
+)
 
 enum class TripStatus(val label: String) {
     PLANNED("Rencana"),
@@ -57,7 +81,7 @@ data class Profile(
 /** Plafon anggaran dari kantor untuk satu pos biaya. */
 data class BudgetItem(
     val id: String = newId(),
-    val category: Category = Category.TRANSPORT,
+    val categoryId: String = "TRANSPORT",
     val description: String = "",
     val amount: Long = 0,
 )
@@ -66,7 +90,7 @@ data class BudgetItem(
 data class Expense(
     val id: String = newId(),
     val day: Long,
-    val category: Category = Category.MEAL,
+    val categoryId: String = "MEAL",
     val description: String = "",
     val amount: Long = 0,
     val paymentMethod: String = PAYMENT_METHODS.first(),
@@ -104,12 +128,16 @@ data class Trip(
     /** Positif = sisa uang muka dikembalikan, negatif = kantor membayar kekurangan. */
     val settlement: Long get() = advance - totalActual
 
-    fun budgetFor(c: Category): Long = budgets.filter { it.category == c }.sumOf { it.amount }
-    fun actualFor(c: Category): Long = expenses.filter { it.category == c }.sumOf { it.amount }
+    fun budgetFor(categoryId: String): Long = budgets.filter { it.categoryId == categoryId }.sumOf { it.amount }
+    fun actualFor(categoryId: String): Long = expenses.filter { it.categoryId == categoryId }.sumOf { it.amount }
 
-    /** Kategori yang punya anggaran atau pengeluaran, urut sesuai enum. */
-    val activeCategories: List<Category>
-        get() = Category.entries.filter { c -> budgets.any { it.category == c } || expenses.any { it.category == c } }
+    /** Kategori yang punya anggaran atau pengeluaran, urut sesuai daftar kategori. */
+    fun activeCategories(all: List<Category>): List<Category> {
+        val used = (budgets.map { it.categoryId } + expenses.map { it.categoryId }).toSet()
+        val known = all.filter { it.id in used }
+        val orphan = used.filter { id -> all.none { it.id == id } }.map(Category::unknown)
+        return known + orphan
+    }
 
     val route: String
         get() = listOf(origin, destination).filter { it.isNotBlank() }.joinToString(" → ")
@@ -118,9 +146,16 @@ data class Trip(
 data class AppData(
     val profile: Profile = Profile(),
     val trips: List<Trip> = emptyList(),
+    val customCategories: List<Category> = emptyList(),
     val onboardingDone: Boolean = false,
 ) {
     fun trip(id: String): Trip? = trips.firstOrNull { it.id == id }
+
+    /** Kategori bawaan + kategori buatan pengguna. */
+    val categories: List<Category> get() = Category.BUILT_INS + customCategories
+
+    fun isCategoryUsed(id: String): Boolean =
+        trips.any { t -> t.budgets.any { it.categoryId == id } || t.expenses.any { it.categoryId == id } }
 }
 
 // ---------- JSON (org.json bawaan Android, tanpa dependensi tambahan) ----------
@@ -139,19 +174,19 @@ fun profileFromJson(o: JSONObject?) = if (o == null) Profile() else Profile(
 )
 
 fun BudgetItem.toJson() = JSONObject()
-    .put("id", id).put("category", category.name).put("description", description).put("amount", amount)
+    .put("id", id).put("category", categoryId).put("description", description).put("amount", amount)
 
 fun budgetFromJson(o: JSONObject) = BudgetItem(
-    id = o.optString("id", newId()), category = Category.of(o.optString("category")),
+    id = o.optString("id", newId()), categoryId = o.optString("category", Category.OTHER_ID),
     description = o.str("description"), amount = o.optLong("amount"),
 )
 
 fun Expense.toJson() = JSONObject()
-    .put("id", id).put("day", day).put("category", category.name).put("description", description)
+    .put("id", id).put("day", day).put("category", categoryId).put("description", description)
     .put("amount", amount).put("paymentMethod", paymentMethod).put("receiptNo", receiptNo).put("note", note)
 
 fun expenseFromJson(o: JSONObject) = Expense(
-    id = o.optString("id", newId()), day = o.optLong("day"), category = Category.of(o.optString("category")),
+    id = o.optString("id", newId()), day = o.optLong("day"), categoryId = o.optString("category", Category.OTHER_ID),
     description = o.str("description"), amount = o.optLong("amount"),
     paymentMethod = o.optString("paymentMethod", PAYMENT_METHODS.first()),
     receiptNo = o.str("receiptNo"), note = o.str("note"),
@@ -181,8 +216,17 @@ fun tripFromJson(o: JSONObject) = Trip(
     createdAt = o.optLong("createdAt"), updatedAt = o.optLong("updatedAt"),
 )
 
+fun Category.toJson() = JSONObject()
+    .put("id", id).put("label", label).put("example", example).put("color", color).put("icon", icon)
+
+fun categoryFromJson(o: JSONObject) = Category(
+    id = o.optString("id", newId()), label = o.str("label"), example = o.str("example"),
+    color = o.optLong("color", 0xFF64748B), icon = o.optString("icon", "more"),
+)
+
 fun AppData.toJson(): JSONObject = JSONObject()
-    .put("version", 1)
+    .put("version", 2)
+    .put("categories", JSONArray(customCategories.map { it.toJson() }))
     .put("profile", profile.toJson())
     .put("onboardingDone", onboardingDone)
     .put("trips", JSONArray(trips.map { it.toJson() }))
@@ -190,5 +234,6 @@ fun AppData.toJson(): JSONObject = JSONObject()
 fun appDataFromJson(o: JSONObject) = AppData(
     profile = profileFromJson(o.optJSONObject("profile")),
     trips = o.optJSONArray("trips").mapObjects(::tripFromJson),
+    customCategories = o.optJSONArray("categories").mapObjects(::categoryFromJson),
     onboardingDone = o.optBoolean("onboardingDone", false),
 )

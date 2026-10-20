@@ -47,7 +47,8 @@ import id.abati.perjadin.data.Category
 import id.abati.perjadin.data.Expense
 import id.abati.perjadin.data.PAYMENT_METHODS
 import id.abati.perjadin.data.Trip
-import id.abati.perjadin.ui.components.CategoryBadge
+import id.abati.perjadin.ui.components.CategoryPicker
+import id.abati.perjadin.ui.components.hint
 import id.abati.perjadin.ui.components.ConfirmDialog
 import id.abati.perjadin.ui.components.DateField
 import id.abati.perjadin.ui.components.DropdownField
@@ -61,7 +62,9 @@ import id.abati.perjadin.util.Fmt
 @Composable
 fun ExpenseEditScreen(
     trip: Trip,
+    categories: List<Category>,
     expense: Expense?,
+    onCreateCategory: (Category) -> Unit,
     onBack: () -> Unit,
     onSave: (Expense) -> Unit,
     onDelete: (String) -> Unit,
@@ -69,10 +72,11 @@ fun ExpenseEditScreen(
     val isNew = expense == null
     // Default tanggal: hari ini jika dalam rentang perjalanan, selain itu tanggal berangkat
     val defaultDay = Fmt.today().let { if (it in trip.startDay..trip.endDay) it else trip.startDay }
-    val defaultCategory = trip.budgets.firstOrNull()?.category ?: Category.MEAL
+    val defaultCategory = trip.budgets.firstOrNull()?.categoryId ?: "MEAL"
 
     var day by rememberSaveable { mutableLongStateOf(expense?.day ?: defaultDay) }
-    var category by rememberSaveable { mutableStateOf(expense?.category ?: defaultCategory) }
+    var categoryId by rememberSaveable { mutableStateOf(expense?.categoryId ?: defaultCategory) }
+    val category = categories.firstOrNull { it.id == categoryId } ?: Category.unknown(categoryId)
     var description by rememberSaveable { mutableStateOf(expense?.description ?: "") }
     var amount by rememberSaveable { mutableLongStateOf(expense?.amount ?: 0L) }
     var payment by rememberSaveable { mutableStateOf(expense?.paymentMethod ?: PAYMENT_METHODS.first()) }
@@ -85,8 +89,8 @@ fun ExpenseEditScreen(
     val amountError = if (amount <= 0) "Nominal harus lebih dari 0" else null
 
     // Sisa anggaran kategori setelah pengeluaran ini (tanpa menghitung nilai lama jika sedang diedit)
-    val catBudget = trip.budgetFor(category)
-    val catActualOthers = trip.expenses.filter { it.category == category && it.id != expense?.id }.sumOf { it.amount }
+    val catBudget = trip.budgetFor(categoryId)
+    val catActualOthers = trip.expenses.filter { it.categoryId == categoryId && it.id != expense?.id }.sumOf { it.amount }
     val catRemaining = catBudget - catActualOthers - amount
     val outOfRange = day < trip.startDay || day > trip.endDay
 
@@ -96,7 +100,7 @@ fun ExpenseEditScreen(
         onSave(
             (expense ?: Expense(day = day)).copy(
                 day = day,
-                category = category,
+                categoryId = categoryId,
                 description = description.trim(),
                 amount = amount,
                 paymentMethod = payment,
@@ -129,19 +133,17 @@ fun ExpenseEditScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             SectionTitle("Pengeluaran", subtitle = "${trip.odrNumber} · ${trip.destination}")
-            DropdownField(
-                label = "Kategori",
-                options = Category.entries,
-                selected = category,
-                optionLabel = { it.label },
-                onSelect = { category = it },
-                optionIcon = { CategoryBadge(it, size = 28) },
+            CategoryPicker(
+                categories = categories,
+                selectedId = categoryId,
+                onSelect = { categoryId = it },
+                onCreate = onCreateCategory,
                 supporting = if (catBudget > 0) "Anggaran kategori ini: ${Fmt.rupiah(catBudget)}" else "Kategori ini belum punya anggaran",
             )
             FormField(
                 value = description, onValueChange = { description = it },
                 label = "Uraian *",
-                placeholder = category.example,
+                placeholder = category.hint(),
                 supporting = if (submitted && descError != null) descError else "Jelaskan untuk apa biaya ini dikeluarkan",
                 isError = submitted && descError != null,
                 singleLine = false,

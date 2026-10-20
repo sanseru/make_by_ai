@@ -9,7 +9,7 @@ yang bisa langsung dikirim ke WhatsApp / Email.
 | Fitur | Keterangan |
 |---|---|
 | Perjalanan per No. ODR | Keperluan, rute, tanggal, pelaksana, uang muka, status (Rencana → Dilaporkan) |
-| Anggaran | Plafon per kategori (tiket, hotel, uang harian, konsumsi, transport lokal, komunikasi, lain-lain) + kalkulator jumlah × tarif |
+| Anggaran | Plafon per kategori (7 kategori bawaan + **kategori buatan sendiri** dengan warna & ikon) + kalkulator jumlah × tarif |
 | Pengeluaran | Tanggal, kategori, nominal, metode bayar, no. struk/invoice, peringatan jika melebihi anggaran |
 | Ringkasan | Anggaran vs realisasi per kategori, % serapan, sisa / kelebihan, settlement uang muka |
 | Laporan PDF (A4) | Kop perusahaan, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan |

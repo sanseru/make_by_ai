@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import id.abati.perjadin.data.Category
 import id.abati.perjadin.data.Profile
 import id.abati.perjadin.data.Trip
 import id.abati.perjadin.data.TripStatus
@@ -82,6 +83,7 @@ private enum class ShareTarget { ANY, WHATSAPP, EMAIL, VIEW, SAVE }
 fun ReportScreen(
     trip: Trip,
     profile: Profile,
+    categories: List<Category>,
     onBack: () -> Unit,
     onMarkReported: (TripStatus) -> Unit,
     onOpenSettings: () -> Unit,
@@ -128,7 +130,7 @@ fun ReportScreen(
             try {
                 val file = withContext(Dispatchers.Default) {
                     PdfReport.generate(
-                        context, trip, profile,
+                        context, trip, profile, categories,
                         PdfReport.Options(includeBudget, includeExpenses, includeSignature, includeNotes),
                     )
                 }

@@ -27,8 +27,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import id.abati.perjadin.data.BudgetItem
 import id.abati.perjadin.data.Category
-import id.abati.perjadin.ui.components.CategoryBadge
-import id.abati.perjadin.ui.components.DropdownField
+import id.abati.perjadin.ui.components.CategoryPicker
+import id.abati.perjadin.ui.components.hint
 import id.abati.perjadin.ui.components.FormField
 import id.abati.perjadin.ui.components.MoneyField
 
@@ -36,12 +36,15 @@ import id.abati.perjadin.ui.components.MoneyField
 @Composable
 fun BudgetDialog(
     item: BudgetItem?,
+    categories: List<Category>,
     durationDays: Long,
+    onCreateCategory: (Category) -> Unit,
     onDismiss: () -> Unit,
     onSave: (BudgetItem) -> Unit,
     onDelete: ((String) -> Unit)? = null,
 ) {
-    var category by remember { mutableStateOf(item?.category ?: Category.TRANSPORT) }
+    var categoryId by remember { mutableStateOf(item?.categoryId ?: categories.first().id) }
+    val category = categories.firstOrNull { it.id == categoryId } ?: Category.unknown(categoryId)
     var description by remember { mutableStateOf(item?.description ?: "") }
     var amount by remember { mutableLongStateOf(item?.amount ?: 0L) }
     var useCalc by remember { mutableStateOf(false) }
@@ -59,18 +62,16 @@ fun BudgetDialog(
         title = { Text(if (item == null) "Tambah Anggaran" else "Ubah Anggaran") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DropdownField(
-                    label = "Kategori",
-                    options = Category.entries,
-                    selected = category,
-                    optionLabel = { it.label },
-                    onSelect = { category = it },
-                    optionIcon = { CategoryBadge(it, size = 28) },
+                CategoryPicker(
+                    categories = categories,
+                    selectedId = categoryId,
+                    onSelect = { categoryId = it },
+                    onCreate = onCreateCategory,
                 )
                 FormField(
                     value = description, onValueChange = { description = it },
                     label = "Uraian",
-                    placeholder = category.example,
+                    placeholder = category.hint(),
                     supporting = "Sesuai rincian di dokumen ODR",
                     singleLine = false,
                 )
@@ -120,7 +121,7 @@ fun BudgetDialog(
                 if (amountError == null) {
                     onSave(
                         (item ?: BudgetItem()).copy(
-                            category = category,
+                            categoryId = categoryId,
                             description = description.trim().ifBlank { category.label },
                             amount = finalAmount,
                         ),

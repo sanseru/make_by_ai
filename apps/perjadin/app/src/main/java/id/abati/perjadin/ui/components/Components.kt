@@ -25,6 +25,19 @@ import androidx.compose.material.icons.filled.LocalTaxi
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.Train
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalLaundryService
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -70,16 +83,31 @@ import id.abati.perjadin.util.Fmt
 
 // ---------------- ikon & warna kategori ----------------
 
-val Category.icon: ImageVector
-    get() = when (this) {
-        Category.TRANSPORT -> Icons.Filled.Flight
-        Category.HOTEL -> Icons.Filled.Hotel
-        Category.PER_DIEM -> Icons.Filled.AccountBalanceWallet
-        Category.MEAL -> Icons.Filled.Restaurant
-        Category.LOCAL_TRANSPORT -> Icons.Filled.LocalTaxi
-        Category.COMMUNICATION -> Icons.Filled.Wifi
-        Category.OTHER -> Icons.Filled.MoreHoriz
-    }
+/** Ikon yang bisa dipilih untuk kategori. Kunci disimpan di data, jadi jangan diubah. */
+val CategoryIcons: Map<String, ImageVector> = linkedMapOf(
+    "flight" to Icons.Filled.Flight,
+    "hotel" to Icons.Filled.Hotel,
+    "wallet" to Icons.Filled.AccountBalanceWallet,
+    "meal" to Icons.Filled.Restaurant,
+    "taxi" to Icons.Filled.LocalTaxi,
+    "wifi" to Icons.Filled.Wifi,
+    "train" to Icons.Filled.Train,
+    "bus" to Icons.Filled.DirectionsBus,
+    "car" to Icons.Filled.DirectionsCar,
+    "fuel" to Icons.Filled.LocalGasStation,
+    "parking" to Icons.Filled.LocalParking,
+    "coffee" to Icons.Filled.LocalCafe,
+    "laundry" to Icons.Filled.LocalLaundryService,
+    "medical" to Icons.Filled.MedicalServices,
+    "gift" to Icons.Filled.CardGiftcard,
+    "shopping" to Icons.Filled.ShoppingBag,
+    "print" to Icons.Filled.Print,
+    "work" to Icons.Filled.Work,
+    "event" to Icons.Filled.Event,
+    "more" to Icons.Filled.MoreHoriz,
+)
+
+val Category.iconVector: ImageVector get() = CategoryIcons[icon] ?: Icons.Filled.MoreHoriz
 
 val Category.tint: Color get() = Color(color)
 
@@ -92,7 +120,7 @@ fun CategoryBadge(category: Category, size: Int = 40) {
             .background(category.tint.copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(category.icon, contentDescription = category.label, tint = category.tint, modifier = Modifier.size((size * 0.5f).dp))
+        Icon(category.iconVector, contentDescription = category.label, tint = category.tint, modifier = Modifier.size((size * 0.5f).dp))
     }
 }
 

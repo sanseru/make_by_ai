@@ -61,6 +61,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import id.abati.perjadin.data.BudgetItem
+import id.abati.perjadin.data.Category
+import id.abati.perjadin.data.find
 import id.abati.perjadin.data.Expense
 import id.abati.perjadin.data.Repository
 import id.abati.perjadin.data.Trip
@@ -82,6 +84,7 @@ private val tabs = listOf("Ringkasan", "Anggaran", "Pengeluaran")
 @Composable
 fun TripDetailScreen(
     trip: Trip,
+    categories: List<Category>,
     repo: Repository,
     onBack: () -> Unit,
     onEdit: () -> Unit,
@@ -162,9 +165,9 @@ fun TripDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 when (tab) {
-                    0 -> overviewTab(trip, onStatus = { repo.setStatus(trip.id, it) })
-                    1 -> budgetTab(trip, onClick = { budgetDialogNew = false; budgetDialog = it }, onAdd = { budgetDialogNew = true; budgetDialog = BudgetItem() })
-                    else -> expenseTab(trip, onClick = onEditExpense, onAdd = onAddExpense)
+                    0 -> overviewTab(trip, categories, onStatus = { repo.setStatus(trip.id, it) })
+                    1 -> budgetTab(trip, categories, onClick = { budgetDialogNew = false; budgetDialog = it }, onAdd = { budgetDialogNew = true; budgetDialog = BudgetItem() })
+                    else -> expenseTab(trip, categories, onClick = onEditExpense, onAdd = onAddExpense)
                 }
             }
         }
@@ -173,7 +176,9 @@ fun TripDetailScreen(
     budgetDialog?.let { item ->
         BudgetDialog(
             item = if (budgetDialogNew) null else item,
+            categories = categories,
             durationDays = trip.durationDays,
+            onCreateCategory = repo::upsertCategory,
             onDismiss = { budgetDialog = null },
             onSave = { repo.upsertBudget(trip.id, it) },
             onDelete = { repo.deleteBudget(trip.id, it) },
@@ -245,7 +250,7 @@ private fun WhiteCard(content: @Composable () -> Unit) {
 
 // ---------------- Tab Ringkasan ----------------
 
-private fun LazyListScope.overviewTab(trip: Trip, onStatus: (TripStatus) -> Unit) {
+private fun LazyListScope.overviewTab(trip: Trip, categories: List<Category>, onStatus: (TripStatus) -> Unit) {
     item {
         WhiteCard {
             SectionTitle("Status")
@@ -259,12 +264,12 @@ private fun LazyListScope.overviewTab(trip: Trip, onStatus: (TripStatus) -> Unit
     item {
         WhiteCard {
             SectionTitle("Anggaran vs Realisasi per Kategori")
-            if (trip.activeCategories.isEmpty()) {
+            if (trip.activeCategories(categories).isEmpty()) {
                 Text("Belum ada data. Tambahkan anggaran & pengeluaran terlebih dulu.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            trip.activeCategories.forEach { c ->
-                val b = trip.budgetFor(c)
-                val a = trip.actualFor(c)
+            trip.activeCategories(categories).forEach { c ->
+                val b = trip.budgetFor(c.id)
+                val a = trip.actualFor(c.id)
                 Column(Modifier.padding(vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CategoryBadge(c, size = 32)
@@ -321,7 +326,7 @@ private fun LazyListScope.overviewTab(trip: Trip, onStatus: (TripStatus) -> Unit
 
 // ---------------- Tab Anggaran ----------------
 
-private fun LazyListScope.budgetTab(trip: Trip, onClick: (BudgetItem) -> Unit, onAdd: () -> Unit) {
+private fun LazyListScope.budgetTab(trip: Trip, categories: List<Category>, onClick: (BudgetItem) -> Unit, onAdd: () -> Unit) {
     item {
         TipCard(
             "Masukkan plafon anggaran yang disetujui kantor sesuai dokumen ODR. Ketuk item untuk mengubah atau menghapus. Gunakan \"Hitung otomatis\" untuk tarif per hari/malam.",
@@ -341,12 +346,14 @@ private fun LazyListScope.budgetTab(trip: Trip, onClick: (BudgetItem) -> Unit, o
         }
         return
     }
-    items(trip.budgets.sortedBy { it.category.ordinal }, key = { it.id }) { b ->
-        val actual = trip.actualFor(b.category)
+    val order = categories.map { it.id }
+    items(trip.budgets.sortedBy { b -> order.indexOf(b.categoryId).let { if (it < 0) Int.MAX_VALUE else it } }, key = { it.id }) { b ->
+        val actual = trip.actualFor(b.categoryId)
+        val cat = categories.find(b.categoryId)
         LineItem(
-            badge = { CategoryBadge(b.category) },
+            badge = { CategoryBadge(cat) },
             title = b.description,
-            subtitle = "${b.category.label} · realisasi kategori ${Fmt.rupiah(actual)}",
+            subtitle = "${cat.label} · realisasi kategori ${Fmt.rupiah(actual)}",
             amount = Fmt.rupiah(b.amount),
             onClick = { onClick(b) },
         )
@@ -356,7 +363,7 @@ private fun LazyListScope.budgetTab(trip: Trip, onClick: (BudgetItem) -> Unit, o
 
 // ---------------- Tab Pengeluaran ----------------
 
-private fun LazyListScope.expenseTab(trip: Trip, onClick: (String) -> Unit, onAdd: () -> Unit) {
+private fun LazyListScope.expenseTab(trip: Trip, categories: List<Category>, onClick: (String) -> Unit, onAdd: () -> Unit) {
     if (trip.expenses.isEmpty()) {
         item {
             EmptyState(
@@ -377,10 +384,11 @@ private fun LazyListScope.expenseTab(trip: Trip, onClick: (String) -> Unit, onAd
             }
         }
         items(list, key = { it.id }) { e: Expense ->
+            val cat = categories.find(e.categoryId)
             LineItem(
-                badge = { CategoryBadge(e.category) },
+                badge = { CategoryBadge(cat) },
                 title = e.description,
-                subtitle = listOf(e.category.label, e.paymentMethod, e.receiptNo).filter { it.isNotBlank() }.joinToString(" · "),
+                subtitle = listOf(cat.label, e.paymentMethod, e.receiptNo).filter { it.isNotBlank() }.joinToString(" · "),
                 amount = Fmt.rupiah(e.amount),
                 onClick = { onClick(e.id) },
             )

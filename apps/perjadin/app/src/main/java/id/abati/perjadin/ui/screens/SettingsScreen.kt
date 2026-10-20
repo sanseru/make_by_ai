@@ -48,7 +48,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
 import id.abati.perjadin.data.AppData
+import id.abati.perjadin.data.Category
+import id.abati.perjadin.ui.components.CategoryBadge
+import id.abati.perjadin.ui.components.CategoryDialog
 import id.abati.perjadin.data.Profile
 import id.abati.perjadin.data.Repository
 import id.abati.perjadin.ui.components.ConfirmDialog
@@ -72,6 +79,8 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
     var approverTitle by rememberSaveable { mutableStateOf(p.approverTitle) }
     var confirmClear by remember { mutableStateOf(false) }
     var pendingImport by remember { mutableStateOf<String?>(null) }
+    var newCategory by remember { mutableStateOf(false) }
+    var editCategory by remember { mutableStateOf<Category?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -133,6 +142,31 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
             Spacer(Modifier.height(4.dp))
             Button(onClick = ::saveProfile, modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("Simpan Profil") }
 
+            SectionTitle("Kategori Biaya", subtitle = "Tambah kategori sendiri, mis. Bensin & Tol, Entertain klien, Parkir")
+            data.categories.forEach { c ->
+                Surface(
+                    onClick = { if (!c.builtIn) editCategory = c },
+                    enabled = !c.builtIn,
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CategoryBadge(c, size = 34)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(c.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                if (c.builtIn) "Bawaan" else "Buatan Anda · ketuk untuk ubah",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (!c.builtIn) Icon(Icons.Filled.Edit, "Ubah", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            PillButton("Tambah Kategori", Icons.Filled.Add, { newCategory = true }, Modifier.fillMaxWidth())
+
             SectionTitle("Data & Backup", subtitle = "Data hanya tersimpan di HP ini. Backup rutin agar aman.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillButton("Ekspor Backup", Icons.Filled.CloudUpload, {
@@ -158,6 +192,24 @@ fun SettingsScreen(data: AppData, repo: Repository, onBack: () -> Unit, onTutori
             )
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    val labels = data.categories.map { it.label.lowercase() }.toSet()
+    if (newCategory) {
+        CategoryDialog(category = null, existingLabels = labels, onDismiss = { newCategory = false }, onSave = repo::upsertCategory)
+    }
+    editCategory?.let { c ->
+        CategoryDialog(
+            category = c,
+            existingLabels = labels,
+            onDismiss = { editCategory = null },
+            onSave = repo::upsertCategory,
+            onDelete = {
+                if (!repo.deleteCategory(c.id)) {
+                    Toast.makeText(context, "Kategori masih dipakai di anggaran/pengeluaran, tidak bisa dihapus", Toast.LENGTH_LONG).show()
+                }
+            },
+        )
     }
 
     if (confirmClear) {

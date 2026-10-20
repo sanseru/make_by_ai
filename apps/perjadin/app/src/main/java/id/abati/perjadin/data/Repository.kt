@@ -68,10 +68,22 @@ class Repository private constructor(dir: File) {
 
     fun upsertExpense(tripId: String, e: Expense) = updateTrip(tripId) { t ->
         val list = if (t.expenses.any { it.id == e.id }) t.expenses.map { if (it.id == e.id) e else it } else t.expenses + e
-        t.copy(expenses = list.sortedWith(compareBy({ it.day }, { it.category.ordinal })))
+        t.copy(expenses = list.sortedBy { it.day })
     }
 
     fun deleteExpense(tripId: String, id: String) = updateTrip(tripId) { t -> t.copy(expenses = t.expenses.filterNot { it.id == id }) }
+
+    fun upsertCategory(c: Category) = update { d ->
+        val list = if (d.customCategories.any { it.id == c.id }) d.customCategories.map { if (it.id == c.id) c else it } else d.customCategories + c
+        d.copy(customCategories = list)
+    }
+
+    /** Hanya menghapus kategori yang tidak dipakai di anggaran/pengeluaran mana pun. */
+    fun deleteCategory(id: String): Boolean {
+        if (state.value.isCategoryUsed(id)) return false
+        update { d -> d.copy(customCategories = d.customCategories.filterNot { it.id == id }) }
+        return true
+    }
 
     fun loadDemo() = update { d -> d.copy(trips = DemoData.trips(d.profile) + d.trips) }
 
