@@ -23,8 +23,8 @@ object DemoData {
                 notes = "Data contoh — silakan hapus setelah mencoba.",
                 budgets = listOf(
                     BudgetItem(categoryId = "TRANSPORT", description = "Tiket pesawat CGK–KNO PP", amount = 2_000_000),
-                    BudgetItem(categoryId = "HOTEL", description = "Hotel 3 malam × Rp500.000", amount = 1_500_000),
-                    BudgetItem(categoryId = "PER_DIEM", description = "Uang harian 4 hari × Rp150.000", amount = 600_000),
+                    BudgetItem(categoryId = "HOTEL", description = "Hotel", basis = BudgetBasis.PER_NIGHT, rate = 500_000, amount = 1_500_000),
+                    BudgetItem(categoryId = "PER_DIEM", description = "Uang harian", basis = BudgetBasis.PER_DAY, rate = 150_000, amount = 600_000),
                     BudgetItem(categoryId = "LOCAL_TRANSPORT", description = "Transport lokal", amount = 500_000),
                     BudgetItem(categoryId = "MEAL", description = "Konsumsi rapat", amount = 400_000),
                 ),

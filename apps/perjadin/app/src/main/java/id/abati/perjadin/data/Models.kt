@@ -78,13 +78,48 @@ data class Profile(
     val isComplete: Boolean get() = name.isNotBlank() && department.isNotBlank()
 }
 
+/** Dasar perhitungan anggaran. Per hari/malam mengikuti durasi perjalanan secara otomatis. */
+enum class BudgetBasis(val label: String, val unit: String) {
+    FIXED("Nominal tetap", ""),
+    PER_DAY("Per hari", "hari"),
+    PER_NIGHT("Per malam", "malam"),
+    PER_QTY("Jumlah × tarif", "×");
+
+    companion object {
+        fun of(name: String?): BudgetBasis = entries.firstOrNull { it.name == name } ?: FIXED
+    }
+}
+
 /** Plafon anggaran dari kantor untuk satu pos biaya. */
 data class BudgetItem(
     val id: String = newId(),
     val categoryId: String = "TRANSPORT",
     val description: String = "",
     val amount: Long = 0,
-)
+    val basis: BudgetBasis = BudgetBasis.FIXED,
+    /** Tarif per satuan (dipakai jika [basis] bukan FIXED). */
+    val rate: Long = 0,
+    /** Jumlah satuan manual (hanya untuk PER_QTY). */
+    val qty: Long = 0,
+) {
+    /** Jumlah satuan efektif: hari = durasi, malam = durasi − 1. */
+    fun qtyFor(durationDays: Long): Long = when (basis) {
+        BudgetBasis.FIXED -> 0
+        BudgetBasis.PER_DAY -> durationDays
+        BudgetBasis.PER_NIGHT -> (durationDays - 1).coerceAtLeast(0)
+        BudgetBasis.PER_QTY -> qty
+    }
+
+    fun recalc(durationDays: Long): BudgetItem =
+        if (basis == BudgetBasis.FIXED) this else copy(amount = rate * qtyFor(durationDays))
+
+    /** Rumus untuk ditampilkan, mis. "4 hari × Rp150.000"; null untuk nominal tetap. */
+    fun formula(durationDays: Long, rupiah: (Long) -> String): String? = when (basis) {
+        BudgetBasis.FIXED -> null
+        BudgetBasis.PER_QTY -> "${qtyFor(durationDays)} × ${rupiah(rate)}"
+        else -> "${qtyFor(durationDays)} ${basis.unit} × ${rupiah(rate)}"
+    }
+}
 
 /** Pengeluaran riil (realisasi) yang dibayar selama perjalanan. */
 data class Expense(
@@ -143,6 +178,27 @@ data class Trip(
 
     val route: String
         get() = listOf(origin, destination).filter { it.isNotBlank() }.joinToString(" → ")
+
+    /** Menghitung ulang anggaran per hari/malam sesuai durasi saat ini. */
+    fun withRecalculatedBudgets(): Trip = copy(budgets = budgets.map { it.recalc(durationDays) })
+
+    /**
+     * Salinan perjalanan sebagai template: anggaran disalin (per hari/malam dihitung ulang
+     * untuk tanggal baru); pengeluaran, uang muka & status tidak ikut.
+     */
+    fun duplicate(odrNumber: String, startDay: Long, endDay: Long): Trip = Trip(
+        odrNumber = odrNumber,
+        purpose = purpose,
+        origin = origin,
+        destination = destination,
+        startDay = startDay,
+        endDay = endDay,
+        travelerName = travelerName,
+        employeeId = employeeId,
+        department = department,
+        notes = notes,
+        budgets = budgets.map { it.copy(id = newId()) },
+    ).withRecalculatedBudgets()
 }
 
 data class AppData(
@@ -181,10 +237,12 @@ fun profileFromJson(o: JSONObject?) = if (o == null) Profile() else Profile(
 
 fun BudgetItem.toJson() = JSONObject()
     .put("id", id).put("category", categoryId).put("description", description).put("amount", amount)
+    .put("basis", basis.name).put("rate", rate).put("qty", qty)
 
 fun budgetFromJson(o: JSONObject) = BudgetItem(
     id = o.optString("id", newId()), categoryId = o.optString("category", Category.OTHER_ID),
     description = o.str("description"), amount = o.optLong("amount"),
+    basis = BudgetBasis.of(o.optString("basis")), rate = o.optLong("rate"), qty = o.optLong("qty"),
 )
 
 fun Expense.toJson() = JSONObject()

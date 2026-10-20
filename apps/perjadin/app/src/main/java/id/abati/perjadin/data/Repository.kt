@@ -51,8 +51,17 @@ class Repository private constructor(dir: File) {
 
     fun upsertTrip(trip: Trip) = update { d ->
         val exists = d.trips.any { it.id == trip.id }
-        val t = trip.copy(updatedAt = System.currentTimeMillis())
+        // Anggaran per hari/malam ikut berubah jika tanggal perjalanan diubah
+        val t = trip.withRecalculatedBudgets().copy(updatedAt = System.currentTimeMillis())
         d.copy(trips = if (exists) d.trips.map { if (it.id == t.id) t else it } else listOf(t) + d.trips)
+    }
+
+    /** Menyalin perjalanan sebagai template; mengembalikan id perjalanan baru. */
+    fun duplicateTrip(sourceId: String, odrNumber: String, startDay: Long, endDay: Long): String? {
+        val source = state.value.trip(sourceId) ?: return null
+        val copy = source.duplicate(odrNumber, startDay, endDay)
+        upsertTrip(copy)
+        return copy.id
     }
 
     fun deleteTrip(id: String) = update { d -> d.copy(trips = d.trips.filterNot { it.id == id }) }

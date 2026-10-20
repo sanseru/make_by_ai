@@ -133,6 +133,8 @@ fun PerjadinApp(repo: Repository) {
                         onBack = nav::pop,
                         onEdit = { nav.push(Screen.TripEdit(trip.id)) },
                         history = data.expenseHistory,
+                        existingOdr = data.trips.map { it.odrNumber.trim().lowercase() }.toSet(),
+                        onDuplicated = { newId -> nav.replace(Screen.TripDetail(newId)) },
                         onReport = { nav.push(Screen.Report(trip.id)) },
                         onDeleted = nav::pop,
                     )

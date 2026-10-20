@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -90,12 +91,15 @@ fun TripDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     history: List<Expense>,
+    existingOdr: Set<String>,
     onReport: () -> Unit,
+    onDuplicated: (String) -> Unit,
     onDeleted: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var duplicate by remember { mutableStateOf(false) }
     // null = dialog tertutup; BudgetItem tanpa id lama = tambah baru
     var budgetDialog by remember { mutableStateOf<BudgetItem?>(null) }
     var budgetDialogNew by remember { mutableStateOf(false) }
@@ -120,6 +124,11 @@ fun TripDetailScreen(
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Menu lain") }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Duplikat (pakai sebagai template)") },
+                                leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
+                                onClick = { menu = false; duplicate = true },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Hapus perjalanan", color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
@@ -199,6 +208,17 @@ fun TripDetailScreen(
             onDelete = { repo.deleteExpense(trip.id, it.id) },
             onCreateCategory = repo::upsertCategory,
             onDismiss = { expenseSheet = null },
+        )
+    }
+
+    if (duplicate) {
+        DuplicateTripDialog(
+            trip = trip,
+            existingOdr = existingOdr,
+            onDismiss = { duplicate = false },
+            onConfirm = { odr, start, end ->
+                repo.duplicateTrip(trip.id, odr, start, end)?.let(onDuplicated)
+            },
         )
     }
 
@@ -377,7 +397,7 @@ private fun LazyListScope.budgetTab(trip: Trip, categories: List<Category>, onCl
         LineItem(
             badge = { CategoryBadge(cat) },
             title = b.description,
-            subtitle = "${cat.label} · realisasi ${Fmt.rupiah(actual)}",
+            subtitle = listOfNotNull(cat.label, b.formula(trip.durationDays, Fmt::rupiah), "realisasi ${Fmt.rupiah(actual)}").joinToString(" · "),
             amount = Fmt.rupiah(b.amount),
             onClick = { onClick(b) },
             trailing = Icons.Filled.Edit,

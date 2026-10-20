@@ -54,6 +54,10 @@ private val faqs = listOf(
         "Tekan \"Catat Pengeluaran\" di Beranda. Aplikasi langsung memilih perjalanan yang sedang berlangsung (atau menanyakan jika ada beberapa). Ketik nominal → pilih kategori → Simpan. Gunakan \"Simpan & Tambah Lagi\" untuk mencatat beberapa struk berturut-turut, dan chip \"Isi cepat dari riwayat\" untuk biaya yang berulang.",
     "Bagaimana melampirkan foto struk?" to
         "Di form pengeluaran, tekan Kamera atau Galeri pada bagian \"Foto struk\". Foto dikompres & disimpan di HP, lalu otomatis dilampirkan di halaman terakhir laporan PDF (bisa dimatikan di layar Laporan). Catatan: file backup .json hanya berisi data, tidak termasuk foto.",
+    "Dinas rutin ke kota yang sama, harus isi anggaran dari awal?" to
+        "Tidak perlu. Buka perjalanan lama → menu ⋮ → \"Duplikat\". Isi No. ODR & tanggal baru. Anggaran berdasar \"Per hari\" / \"Per malam\" (mis. uang harian, hotel) otomatis dihitung ulang sesuai durasi baru, dan Anda melihat pratinjaunya sebelum menyimpan. Pengeluaran & uang muka tidak ikut disalin.",
+    "Apa beda dasar perhitungan anggaran?" to
+        "Nominal tetap: angka langsung (mis. tiket PP Rp2.000.000). Per hari: tarif × jumlah hari perjalanan (mis. uang harian). Per malam: tarif × (hari − 1) (mis. hotel). Jumlah × tarif: jumlah manual (mis. 2 kali taksi bandara). Per hari/malam otomatis menyesuaikan saat tanggal perjalanan diubah.",
     "Bagaimana mengubah anggaran yang sudah diisi?" to
         "Buka perjalanan → tab Anggaran → ketuk item anggaran (ikon pensil) untuk mengubah kategori, uraian, atau nominal, atau menghapusnya.",
     "Bisakah saya menambah kategori sendiri?" to
