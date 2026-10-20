@@ -10,7 +10,7 @@ yang bisa langsung dikirim ke WhatsApp / Email.
 |---|---|
 | Duplikat perjalanan | Salin perjalanan lama sebagai template dengan No. ODR & tanggal baru; anggaran per hari/malam dihitung ulang dengan pratinjau |
 | Perjalanan per No. ODR | Keperluan, rute, tanggal, pelaksana, uang muka, status (Rencana → Dilaporkan) |
-| Anggaran & kategori | Plafon per kategori: nominal tetap, per hari, per malam (otomatis ikut tanggal), atau jumlah × tarif. Semua kategori (bawaan & buatan sendiri) bisa diubah nama/ikon/warna |
+| Anggaran & kategori | Plafon per kategori: nominal tetap, per hari, per malam (otomatis ikut tanggal), atau jumlah × tarif. **Lumpsum** (uang harian/makan/saku): dibayar penuh per hari aktual tanpa bukti, tidak dikembalikan kecuali hari aktual kurang; perpanjangan ikut dibayar. Semua kategori (bawaan & buatan sendiri) bisa diubah nama/ikon/warna |
 | Pengeluaran | Tombol cepat di Beranda + form bottom sheet (nominal → kategori → simpan), "Simpan & Tambah Lagi", isi cepat dari riwayat, foto struk (kamera/galeri), peringatan jika melebihi anggaran |
 | Ringkasan | Anggaran vs realisasi per kategori, % serapan, sisa / kelebihan, settlement uang muka |
 | Laporan PDF (A4) | Kop perusahaan + logo, tanda tangan digital, rekap, rincian anggaran & pengeluaran, pernyataan, kolom tanda tangan, lampiran foto struk |

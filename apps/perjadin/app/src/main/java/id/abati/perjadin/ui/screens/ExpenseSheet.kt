@@ -281,7 +281,17 @@ fun ExpenseSheet(
                 )
             }
 
-            if (catBudget > 0 && amount > 0) {
+            if (trip.isLumpsumCategory(categoryId)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "${category.label} dibayar lumpsum. Catatan ini hanya untuk Anda & tidak memengaruhi laporan.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else if (catBudget > 0 && amount > 0) {
                 val over = catRemaining < 0
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (over) Icons.Filled.Warning else Icons.Filled.Info, null, tint = if (over) Danger else MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))

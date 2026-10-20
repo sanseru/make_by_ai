@@ -109,7 +109,19 @@ data class BudgetItem(
     val rate: Long = 0,
     /** Jumlah satuan manual (hanya untuk PER_QTY). */
     val qty: Long = 0,
+    /**
+     * Lumpsum (mis. uang harian/makan/saku): dibayar tetap tanpa bukti dan tidak dikembalikan.
+     * Untuk per hari/malam, haknya mengikuti hari AKTUAL perjalanan (pulang cepat → dikembalikan,
+     * diperpanjang → ditambah). Pengeluaran di kategorinya tidak dihitung (catatan pribadi).
+     */
+    val lumpsum: Boolean = false,
 ) {
+    /** Hak lumpsum untuk durasi aktual; nominal tetap / jumlah manual tidak bergantung durasi. */
+    fun lumpsumEntitlement(actualDurationDays: Long): Long = when (basis) {
+        BudgetBasis.PER_DAY, BudgetBasis.PER_NIGHT -> rate * qtyFor(actualDurationDays)
+        else -> amount
+    }
+
     /** Jumlah satuan efektif: hari = durasi, malam = durasi − 1. */
     fun qtyFor(durationDays: Long): Long = when (basis) {
         BudgetBasis.FIXED -> 0
@@ -168,9 +180,34 @@ data class Trip(
     /** Nominal yang benar-benar diterima / dikembalikan saat penyelesaian. */
     val settledAmount: Long = 0,
     val settlementNote: String = "",
+    /** Tanggal pelaksanaan aktual bila berbeda dari rencana ODR, -1 = sama dengan rencana. */
+    val actualStartDay: Long = -1,
+    val actualEndDay: Long = -1,
 ) {
+    // ---------------------------------------------------------------------------------------
+    // Aturan keuangan (satu sumber untuk semua layar, widget & PDF):
+    // - Plafon (anggaran) dihitung dari tanggal RENCANA (ODR).
+    // - Realisasi = pengeluaran berbukti di kategori biasa + hak lumpsum (tarif × hari AKTUAL).
+    // - Pengeluaran di kategori lumpsum tidak dihitung (agar tidak dobel) — hanya catatan pribadi.
+    // - Penyelesaian = realisasi − uang muka.
+    // ---------------------------------------------------------------------------------------
+
     val totalBudget: Long get() = budgets.sumOf { it.amount }
-    val totalActual: Long get() = expenses.sumOf { it.amount }
+
+    val hasActualDates: Boolean get() = actualStartDay >= 0 && actualEndDay >= 0
+    val effectiveStartDay: Long get() = if (hasActualDates) actualStartDay else startDay
+    val effectiveEndDay: Long get() = if (hasActualDates) actualEndDay else endDay
+    val actualDurationDays: Long get() = effectiveEndDay - effectiveStartDay + 1
+
+    val lumpsumBudgets: List<BudgetItem> get() = budgets.filter { it.lumpsum }
+    fun isLumpsumCategory(categoryId: String): Boolean = budgets.any { it.lumpsum && it.categoryId == categoryId }
+
+    /** Pengeluaran yang masuk perhitungan (bukan di kategori lumpsum). */
+    val countedExpenses: List<Expense> get() = expenses.filterNot { isLumpsumCategory(it.categoryId) }
+    val totalCountedExpenses: Long get() = countedExpenses.sumOf { it.amount }
+    val totalLumpsum: Long get() = lumpsumBudgets.sumOf { it.lumpsumEntitlement(actualDurationDays) }
+
+    val totalActual: Long get() = totalCountedExpenses + totalLumpsum
 
     /** Positif = masih tersisa, negatif = melebihi anggaran. */
     val remaining: Long get() = totalBudget - totalActual
@@ -188,7 +225,12 @@ data class Trip(
     val needsSettlement: Boolean get() = !isSettled && amountDueToEmployee != 0L && (totalActual > 0 || advance > 0)
 
     fun budgetFor(categoryId: String): Long = budgets.filter { it.categoryId == categoryId }.sumOf { it.amount }
-    fun actualFor(categoryId: String): Long = expenses.filter { it.categoryId == categoryId }.sumOf { it.amount }
+    fun actualFor(categoryId: String): Long =
+        if (isLumpsumCategory(categoryId)) {
+            lumpsumBudgets.filter { it.categoryId == categoryId }.sumOf { it.lumpsumEntitlement(actualDurationDays) }
+        } else {
+            expenses.filter { it.categoryId == categoryId }.sumOf { it.amount }
+        }
 
     /** Kategori yang punya anggaran atau pengeluaran, urut sesuai daftar kategori. */
     fun activeCategories(all: List<Category>): List<Category> {
@@ -277,12 +319,13 @@ fun profileFromJson(o: JSONObject?) = if (o == null) Profile() else Profile(
 
 fun BudgetItem.toJson() = JSONObject()
     .put("id", id).put("category", categoryId).put("description", description).put("amount", amount)
-    .put("basis", basis.name).put("rate", rate).put("qty", qty)
+    .put("basis", basis.name).put("rate", rate).put("qty", qty).put("lumpsum", lumpsum)
 
 fun budgetFromJson(o: JSONObject) = BudgetItem(
     id = o.optString("id", newId()), categoryId = o.optString("category", Category.OTHER_ID),
     description = o.str("description"), amount = o.optLong("amount"),
     basis = BudgetBasis.of(o.optString("basis")), rate = o.optLong("rate"), qty = o.optLong("qty"),
+    lumpsum = o.optBoolean("lumpsum", false),
 )
 
 fun Expense.toJson() = JSONObject()
@@ -308,6 +351,7 @@ fun Trip.toJson(): JSONObject = JSONObject()
     .put("createdAt", createdAt).put("updatedAt", updatedAt)
     .put("submittedDay", submittedDay).put("settledDay", settledDay)
     .put("settledAmount", settledAmount).put("settlementNote", settlementNote)
+    .put("actualStartDay", actualStartDay).put("actualEndDay", actualEndDay)
 
 private inline fun <T> JSONArray?.mapObjects(f: (JSONObject) -> T): List<T> =
     if (this == null) emptyList() else (0 until length()).map { f(getJSONObject(it)) }
@@ -323,6 +367,7 @@ fun tripFromJson(o: JSONObject) = Trip(
     createdAt = o.optLong("createdAt"), updatedAt = o.optLong("updatedAt"),
     submittedDay = o.optLong("submittedDay", -1), settledDay = o.optLong("settledDay", -1),
     settledAmount = o.optLong("settledAmount"), settlementNote = o.str("settlementNote"),
+    actualStartDay = o.optLong("actualStartDay", -1), actualEndDay = o.optLong("actualEndDay", -1),
 )
 
 fun Category.toJson() = JSONObject()
@@ -364,9 +409,11 @@ fun appDataFromJson(o: JSONObject) = AppData(
  * 2 = "categories" berisi kategori buatan pengguna saja.
  * 3 = "categories" berisi semua kategori (bawaan + buatan pengguna).
  * 4 = dasar anggaran, foto struk, status reimburse, pengingat, logo/tanda tangan, lastBackupAt.
+ * 5 = anggaran lumpsum & tanggal aktual. Dinaikkan agar aplikasi versi lama (yang belum mengerti
+ *     lumpsum dan akan salah menghitung) membuka data ini dalam mode baca-saja.
  * Semua field baru opsional dengan nilai default, sehingga data lama selalu terbaca.
  */
-const val DATA_VERSION = 4
+const val DATA_VERSION = 5
 
 class UnsupportedDataVersionException(val found: Int) :
     Exception("Data dibuat oleh versi aplikasi yang lebih baru (format $found, didukung maks $DATA_VERSION). Perbarui aplikasi Perjadin terlebih dulu.")
@@ -392,6 +439,7 @@ fun validateAppData(data: AppData): List<String> {
     data.trips.forEach { t ->
         val name = t.odrNumber.ifBlank { t.id }
         if (t.endDay < t.startDay) issues += "$name: tanggal pulang sebelum tanggal berangkat"
+        if (t.hasActualDates && t.actualEndDay < t.actualStartDay) issues += "$name: tanggal aktual pulang sebelum berangkat"
         if (t.advance < 0) issues += "$name: uang muka negatif"
         if (t.budgets.any { it.amount < 0 || it.rate < 0 || it.qty < 0 }) issues += "$name: ada anggaran bernilai negatif"
         if (t.expenses.any { it.amount < 0 }) issues += "$name: ada pengeluaran bernilai negatif"

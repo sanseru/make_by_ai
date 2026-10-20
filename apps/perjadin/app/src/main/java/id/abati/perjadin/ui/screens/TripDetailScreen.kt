@@ -334,7 +334,11 @@ private fun LazyListScope.overviewTab(
                         CategoryBadge(c, size = 32)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(c.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (trip.isLumpsumCategory(c.id)) "${c.label} · lumpsum ${trip.actualDurationDays} hari" else c.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                             Text("${Fmt.rupiah(a)} / ${Fmt.rupiah(b)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (a > b) {
@@ -360,8 +364,19 @@ private fun LazyListScope.overviewTab(
             InfoRow("Nomor ODR", trip.odrNumber)
             InfoRow("Keperluan", trip.purpose)
             InfoRow("Rute", trip.route)
-            InfoRow("Tanggal", Fmt.range(trip.startDay, trip.endDay))
-            InfoRow("Durasi", "${trip.durationDays} hari")
+            InfoRow("Tanggal (rencana)", Fmt.range(trip.startDay, trip.endDay))
+            InfoRow("Durasi rencana", "${trip.durationDays} hari")
+            if (trip.hasActualDates) {
+                InfoRow("Tanggal (aktual)", Fmt.range(trip.actualStartDay, trip.actualEndDay))
+                InfoRow(
+                    "Durasi aktual",
+                    "${trip.actualDurationDays} hari" + when {
+                        trip.actualDurationDays > trip.durationDays -> " (diperpanjang ${trip.actualDurationDays - trip.durationDays} hari)"
+                        trip.actualDurationDays < trip.durationDays -> " (lebih cepat ${trip.durationDays - trip.actualDurationDays} hari)"
+                        else -> ""
+                    },
+                )
+            }
             InfoRow("Pelaksana", trip.travelerName)
             InfoRow("NIK", trip.employeeId)
             InfoRow("Departemen", trip.department)
@@ -399,7 +414,11 @@ private fun LazyListScope.budgetTab(trip: Trip, categories: List<Category>, onCl
         LineItem(
             badge = { CategoryBadge(cat) },
             title = b.description,
-            subtitle = listOfNotNull(cat.label, b.formula(trip.durationDays, Fmt::rupiah), "realisasi ${Fmt.rupiah(actual)}").joinToString(" · "),
+            subtitle = listOfNotNull(
+                cat.label,
+                b.formula(trip.durationDays, Fmt::rupiah),
+                if (b.lumpsum) "LUMPSUM · hak ${Fmt.rupiah(b.lumpsumEntitlement(trip.actualDurationDays))}" else "realisasi ${Fmt.rupiah(actual)}",
+            ).joinToString(" · "),
             amount = Fmt.rupiah(b.amount),
             onClick = { onClick(b) },
             trailing = Icons.Filled.Edit,
@@ -435,14 +454,20 @@ private fun LazyListScope.expenseTab(trip: Trip, categories: List<Category>, onC
             LineItem(
                 badge = { CategoryBadge(cat) },
                 title = e.description,
-                subtitle = listOf(cat.label, e.paymentMethod, e.receiptNo).filter { it.isNotBlank() }.joinToString(" · "),
+                subtitle = (if (trip.isLumpsumCategory(e.categoryId)) listOf("Catatan pribadi (lumpsum, tidak dihitung)") else emptyList<String>())
+                    .plus(listOf(cat.label, e.paymentMethod, e.receiptNo).filter { it.isNotBlank() })
+                    .joinToString(" · "),
                 amount = Fmt.rupiah(e.amount),
                 onClick = { onClick(e.id) },
                 trailing = if (e.photo.isNotBlank()) Icons.Filled.PhotoCamera else null,
             )
         }
     }
-    item { TotalRow("Total Realisasi", Fmt.rupiah(trip.totalActual)) }
+    item { TotalRow("Total pengeluaran berbukti", Fmt.rupiah(trip.totalCountedExpenses)) }
+    if (trip.lumpsumBudgets.isNotEmpty()) {
+        item { TotalRow("Lumpsum (${trip.actualDurationDays} hari)", Fmt.rupiah(trip.totalLumpsum)) }
+        item { TotalRow("Total realisasi", Fmt.rupiah(trip.totalActual)) }
+    }
 }
 
 @Composable

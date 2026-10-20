@@ -48,8 +48,8 @@ private val faqs = listOf(
         "Tetap catat sesuai nominal sebenarnya. Aplikasi akan menandai kategori tersebut dengan warna merah dan peringatan, sehingga Anda bisa menyiapkan alasan atau persetujuan atasan sebelum laporan dikirim.",
     "Apa itu Uang Muka dan Penyelesaian (settlement)?" to
         "Uang muka adalah dana yang Anda terima dari kantor sebelum berangkat. Setelah perjalanan, aplikasi menghitung: jika realisasi lebih kecil, sisa dikembalikan ke kantor; jika lebih besar, kekurangannya dapat diajukan reimburse.",
-    "Kantor saya memakai sistem uang harian lumpsum, bagaimana mencatatnya?" to
-        "Jika kebijakan kantor memberikan uang harian tetap (lumpsum) tanpa perlu bukti, catat sebagai pengeluaran kategori \"Uang Harian\" sebesar nominal yang ditetapkan, dan tulis dasar kebijakannya di Keterangan (mis. \"Sesuai SK uang harian golongan III\").",
+    "Uang harian / uang makan / uang saku lumpsum, bagaimana mencatatnya?" to
+        "Saat menambah anggaran, pilih dasar \"Per hari\" (atau per malam), isi tarifnya, lalu aktifkan \"Lumpsum (tanpa bukti)\". Lumpsum dibayar penuh sesuai jumlah hari aktual dan TIDAK dikembalikan walau belanja Anda lebih sedikit, jadi tidak perlu mencatat struk makan. Jika pulang lebih cepat, aktifkan \"Tanggal aktual berbeda dari rencana\" di form perjalanan: kekurangan hari otomatis dihitung untuk dikembalikan. Jika dinas diperpanjang, hari tambahan otomatis ikut dibayar.",
     "Cara tercepat mencatat pengeluaran?" to
         "Tekan \"Catat Pengeluaran\" di Beranda. Aplikasi langsung memilih perjalanan yang sedang berlangsung (atau menanyakan jika ada beberapa). Ketik nominal → pilih kategori → Simpan. Gunakan \"Simpan & Tambah Lagi\" untuk mencatat beberapa struk berturut-turut, dan chip \"Isi cepat dari riwayat\" untuk biaya yang berulang.",
     "Bagaimana melampirkan foto struk?" to

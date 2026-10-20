@@ -111,6 +111,7 @@ private class ReportLayout(
         tripInfo()
         recap()
         if (opt.includeBudgetDetails && trip.budgets.isNotEmpty()) budgetDetails()
+        if (trip.lumpsumBudgets.isNotEmpty()) lumpsumDetails()
         if (opt.includeExpenseDetails) expenseDetails()
         if (opt.includeNotes && trip.notes.isNotBlank()) notes()
         if (opt.includeSignature) signatures()
@@ -243,7 +244,14 @@ private class ReportLayout(
                 "Nomor ODR" to trip.odrNumber,
                 "Keperluan / Tujuan Dinas" to trip.purpose,
                 "Rute" to trip.route,
-                "Tanggal" to "${Fmt.range(trip.startDay, trip.endDay)} (${trip.durationDays} hari)",
+                "Tanggal (rencana ODR)" to "${Fmt.range(trip.startDay, trip.endDay)} (${trip.durationDays} hari)",
+            ) + (
+                if (trip.hasActualDates) {
+                    listOf("Tanggal (aktual)" to "${Fmt.range(trip.actualStartDay, trip.actualEndDay)} (${trip.actualDurationDays} hari)")
+                } else {
+                    emptyList()
+                }
+            ) + listOf(
                 "Nama Pelaksana" to trip.travelerName,
                 "NIK / No. Karyawan" to trip.employeeId,
                 "Jabatan" to profile.position,
@@ -309,7 +317,8 @@ private class ReportLayout(
         val rows = cats.map { c ->
             val b = trip.budgetFor(c.id)
             val a = trip.actualFor(c.id)
-            listOf(c.label, Fmt.rupiah(b), Fmt.rupiah(a), Fmt.rupiah(b - a), Fmt.percent(a, b))
+            val label = if (trip.isLumpsumCategory(c.id)) "${c.label} (lumpsum ${trip.actualDurationDays} hari)" else c.label
+            listOf(label, Fmt.rupiah(b), Fmt.rupiah(a), Fmt.rupiah(b - a), Fmt.percent(a, b))
         }
         val colors = cats.map { c -> if (trip.actualFor(c.id) > trip.budgetFor(c.id)) red else null }
         if (rows.isEmpty()) {
@@ -394,9 +403,24 @@ private class ReportLayout(
         )
     }
 
+    /** Pos lumpsum: dibayar sesuai hari aktual tanpa bukti pengeluaran. */
+    private fun lumpsumDetails() {
+        sectionTitle("Rincian Lumpsum (tanpa bukti, sesuai hari aktual)")
+        table(
+            headers = listOf("No", "Kategori", "Uraian", "Perhitungan", "Jumlah"),
+            widths = listOf(28f, 100f, 150f, 137f, 100f),
+            aligns = listOf(Align.C, Align.L, Align.L, Align.L, Align.R),
+            rows = trip.lumpsumBudgets.mapIndexed { i, b ->
+                val calc = b.formula(trip.actualDurationDays, Fmt::rupiah) ?: "Nominal tetap"
+                listOf("${i + 1}", categories.find(b.categoryId).label, b.description.ifBlank { "-" }, calc, Fmt.rupiah(b.lumpsumEntitlement(trip.actualDurationDays)))
+            },
+            footer = listOf("", "", "TOTAL LUMPSUM", "", Fmt.rupiah(trip.totalLumpsum)),
+        )
+    }
+
     private fun expenseDetails() {
-        sectionTitle("D. Rincian Pengeluaran (Realisasi)")
-        if (trip.expenses.isEmpty()) {
+        sectionTitle("D. Rincian Pengeluaran Berbukti")
+        if (trip.countedExpenses.isEmpty()) {
             ensure(20f)
             canvas.drawText("Belum ada pengeluaran yang dicatat.", margin, y + 10f, small)
             y += 24f
@@ -406,13 +430,13 @@ private class ReportLayout(
             headers = listOf("No", "Tanggal", "Kategori", "Uraian", "Pembayaran / No. Bukti", "Jumlah"),
             widths = listOf(24f, 62f, 82f, 157f, 100f, 90f),
             aligns = listOf(Align.C, Align.L, Align.L, Align.L, Align.L, Align.R),
-            rows = trip.expenses.mapIndexed { i, e ->
+            rows = trip.countedExpenses.mapIndexed { i, e ->
                 val desc = if (e.note.isBlank()) e.description else "${e.description}\n(${e.note})"
                 var pay = if (e.receiptNo.isBlank()) e.paymentMethod else "${e.paymentMethod}\n${e.receiptNo}"
                 if (opt.includePhotos && e.photo.isNotBlank()) pay += "\n(foto terlampir)"
                 listOf("${i + 1}", Fmt.date(e.day), categories.find(e.categoryId).label, desc, pay, Fmt.rupiah(e.amount))
             },
-            footer = listOf("", "", "", "TOTAL REALISASI", "", Fmt.rupiah(trip.totalActual)),
+            footer = listOf("", "", "", "TOTAL BERBUKTI", "", Fmt.rupiah(trip.totalCountedExpenses)),
         )
     }
 
@@ -429,7 +453,8 @@ private class ReportLayout(
 
     /** Lampiran foto struk: 2 kolom, setiap foto diberi keterangan nomor transaksi. */
     private fun photos() {
-        val items = trip.expenses.withIndex().filter { it.value.photo.isNotBlank() }
+        // Nomor lampiran = nomor baris di tabel rincian pengeluaran berbukti
+        val items = trip.countedExpenses.withIndex().filter { it.value.photo.isNotBlank() }
         if (items.isEmpty()) return
         newPage()
         sectionTitle("Lampiran Foto Bukti Pengeluaran")

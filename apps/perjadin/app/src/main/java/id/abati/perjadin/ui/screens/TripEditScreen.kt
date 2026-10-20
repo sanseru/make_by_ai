@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +77,9 @@ fun TripEditScreen(
     var advance by rememberSaveable { mutableLongStateOf(trip?.advance ?: 0L) }
     var status by rememberSaveable { mutableStateOf(trip?.status ?: TripStatus.PLANNED) }
     var notes by rememberSaveable { mutableStateOf(trip?.notes ?: "") }
+    var useActual by rememberSaveable { mutableStateOf(trip?.hasActualDates ?: false) }
+    var actualStart by rememberSaveable { mutableLongStateOf(trip?.effectiveStartDay ?: Fmt.today()) }
+    var actualEnd by rememberSaveable { mutableLongStateOf(trip?.effectiveEndDay ?: (Fmt.today() + 2)) }
     var submitted by rememberSaveable { mutableStateOf(false) }
 
     val odrError = when {
@@ -84,7 +90,8 @@ fun TripEditScreen(
     val purposeError = if (purpose.isBlank()) "Keperluan wajib diisi" else null
     val destError = if (destination.isBlank()) "Kota tujuan wajib diisi" else null
     val dateError = if (end < start) "Tanggal pulang tidak boleh sebelum tanggal berangkat" else null
-    val valid = listOf(odrError, purposeError, destError, dateError).all { it == null }
+    val actualError = if (useActual && actualEnd < actualStart) "Tanggal aktual pulang tidak boleh sebelum berangkat" else null
+    val valid = listOf(odrError, purposeError, destError, dateError, actualError).all { it == null }
 
     fun save() {
         submitted = true
@@ -104,6 +111,8 @@ fun TripEditScreen(
                 advance = advance,
                 status = status,
                 notes = notes.trim(),
+                actualStartDay = if (useActual) actualStart else -1,
+                actualEndDay = if (useActual) actualEnd else -1,
             ),
         )
     }
@@ -183,6 +192,29 @@ fun TripEditScreen(
                 supporting = dateError ?: "Durasi: ${end - start + 1} hari",
                 isError = dateError != null,
             )
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text("Tanggal aktual berbeda dari rencana", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Aktifkan jika pulang lebih cepat / dinas diperpanjang. Uang harian lumpsum dihitung dari tanggal aktual.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = useActual, onCheckedChange = { on ->
+                    if (on && !useActual) { actualStart = start; actualEnd = end }
+                    useActual = on
+                })
+            }
+            if (useActual) {
+                DateField(day = actualStart, onChange = { actualStart = it; if (actualEnd < it) actualEnd = it }, label = "Berangkat (aktual)")
+                DateField(
+                    day = actualEnd, onChange = { actualEnd = it }, label = "Pulang (aktual)",
+                    supporting = actualError ?: "Aktual ${actualEnd - actualStart + 1} hari · rencana ${end - start + 1} hari",
+                    isError = actualError != null,
+                )
+            }
 
             SectionTitle("Pelaksana", subtitle = "Otomatis terisi dari Profil (bisa diubah)")
             FormField(

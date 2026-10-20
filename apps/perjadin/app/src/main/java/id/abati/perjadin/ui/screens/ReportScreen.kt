@@ -95,7 +95,7 @@ fun ReportScreen(
     var includeSignature by rememberSaveable { mutableStateOf(true) }
     var includeNotes by rememberSaveable { mutableStateOf(true) }
     var includePhotos by rememberSaveable { mutableStateOf(true) }
-    val photoCount = trip.expenses.count { it.photo.isNotBlank() }
+    val photoCount = trip.countedExpenses.count { it.photo.isNotBlank() }
     var busy by remember { mutableStateOf(false) }
     var pendingSave by remember { mutableStateOf<File?>(null) }
     var lastShared by remember { mutableStateOf(false) }

@@ -11,6 +11,8 @@
 - Info "Backup terakhir" + pengingat di Beranda bila belum backup > 14 hari.
 
 ### 💰 Akurasi keuangan
+- **Lumpsum** untuk uang harian/makan/saku: dibayar penuh sesuai **hari aktual**, tanpa bukti, tidak dikembalikan walau belanja lebih sedikit. Pulang lebih cepat → kekurangan hari dikembalikan; dinas diperpanjang → hari tambahan ikut dibayar. Pengeluaran di kategori lumpsum tidak dihitung (tidak dobel).
+- **Tanggal aktual** terpisah dari tanggal rencana ODR.
 - Anggaran **per hari** (hari kalender) dan **per malam** (hari − 1), otomatis dihitung ulang saat tanggal diubah.
 - Status reimburse terpisah dari pengeluaran (tidak dihitung dua kali).
 - Status perjalanan **Dibatalkan**.

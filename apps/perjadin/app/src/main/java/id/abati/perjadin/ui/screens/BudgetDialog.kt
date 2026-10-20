@@ -17,6 +17,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,6 +62,7 @@ fun BudgetDialog(
     var amount by remember { mutableLongStateOf(item?.amount ?: 0L) }
     var rate by remember { mutableLongStateOf(item?.rate ?: 0L) }
     var qty by remember { mutableStateOf(item?.qty?.takeIf { it > 0 }?.toString() ?: "1") }
+    var lumpsum by remember { mutableStateOf(item?.lumpsum ?: (categoryId == "PER_DIEM")) }
     var submitted by remember { mutableStateOf(false) }
 
     val draft = BudgetItem(basis = basis, rate = rate, qty = qty.toLongOrNull() ?: 0L, amount = amount)
@@ -163,6 +166,23 @@ fun BudgetDialog(
                         Text(amountError, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
+
+                // Lumpsum: uang harian/makan/saku yang dibayar tetap tanpa bukti
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Lumpsum (tanpa bukti)", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (basis == BudgetBasis.PER_DAY || basis == BudgetBasis.PER_NIGHT) {
+                                "Untuk uang harian/makan/saku. Dibayar penuh sesuai hari aktual, tidak dikembalikan walau belanja lebih sedikit. Pulang lebih cepat → kekurangan hari dikembalikan; diperpanjang → ditambah."
+                            } else {
+                                "Dibayar tetap sebesar nominal ini, tidak perlu struk & tidak dikembalikan."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = lumpsum, onCheckedChange = { lumpsum = it })
+                }
             }
         },
         confirmButton = {
@@ -177,6 +197,7 @@ fun BudgetDialog(
                             rate = if (basis == BudgetBasis.FIXED) 0 else rate,
                             qty = if (basis == BudgetBasis.PER_QTY) (qty.toLongOrNull() ?: 0L) else 0,
                             amount = finalAmount,
+                            lumpsum = lumpsum,
                         ),
                     )
                     onDismiss()
