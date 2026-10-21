@@ -1,5 +1,6 @@
 package id.abati.autocare.data
 
+import id.abati.autocare.domain.Money
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -176,6 +177,8 @@ class Repository(private val db: AppDatabase, scope: CoroutineScope, private val
         componentPlans: Map<String, ComponentPlan>,
     ) = db.tx {
         val old = dao.tasksOfVisit(visit.id)
+        // Episode komponen dari versi lama disimpan dulu agar detailnya (umur pakai, seri) tidak hilang
+        val ownInstallations = if (old.isEmpty()) emptyMap() else dao.installationsByTasks(old.map { it.id }).associateBy { it.taskId }
         dao.upsertVisit(visit.copy(updatedAt = now()))
 
         // Lepas sementara efek komponen dari versi lama kunjungan ini
@@ -196,7 +199,7 @@ class Repository(private val db: AppDatabase, scope: CoroutineScope, private val
             dao.upsertTask(t)
 
             if (visit.status == VisitStatus.DONE && t.action.changesComponent && t.componentId != null) {
-                installComponent(visit, t, plan)
+                installComponent(visit, t, plan, ownInstallations[t.id])
             }
             if (visit.status == VisitStatus.DONE && t.reminderId != null && t.action != TaskAction.PLANNED) {
                 completedReminderIds += t.reminderId
@@ -206,7 +209,7 @@ class Repository(private val db: AppDatabase, scope: CoroutineScope, private val
         if (completedReminderIds.isNotEmpty()) dao.clearSnooze(completedReminderIds)
     }
 
-    private suspend fun installComponent(visit: ServiceVisit, t: ServiceTask, plan: ComponentPlan?) {
+    private suspend fun installComponent(visit: ServiceVisit, t: ServiceTask, plan: ComponentPlan?, own: ComponentInstallation?) {
         val componentId = t.componentId ?: return
         val previous = dao.installationsOf(componentId).filter { !it.removed }
         val prevLife = previous.maxByOrNull { it.createdAt }
@@ -221,21 +224,28 @@ class Repository(private val db: AppDatabase, scope: CoroutineScope, private val
                 ),
             )
         }
+        val lifeSource = own ?: prevLife
         dao.upsertInstallation(
             ComponentInstallation(
+                id = own?.id ?: newId(),
                 componentId = componentId,
                 vehicleId = visit.vehicleId,
                 taskId = t.id,
                 brand = t.brand,
                 type = t.partNumber,
-                serialNumber = plan?.serialNumber ?: "",
-                price = id.abati.autocare.domain.Money.partsCost(t),
+                serialNumber = plan?.serialNumber ?: own?.serialNumber ?: "",
+                price = Money.partsCost(t),
                 installedDay = visit.day,
                 installedKm = visit.odometer,
-                expectedLifeKm = plan?.expectedLifeKm ?: prevLife?.expectedLifeKm,
-                expectedLifeMonths = plan?.expectedLifeMonths ?: prevLife?.expectedLifeMonths,
+                expectedLifeKm = if (plan != null) plan.expectedLifeKm else lifeSource?.expectedLifeKm,
+                expectedLifeMonths = if (plan != null) plan.expectedLifeMonths else lifeSource?.expectedLifeMonths,
+                nextDay = own?.nextDay,
+                nextKm = own?.nextKm,
                 warrantyUntilDay = t.warrantyUntilDay,
-                notes = t.notes,
+                conditionBefore = own?.conditionBefore ?: "",
+                conditionAfter = own?.conditionAfter ?: "",
+                notes = own?.notes?.takeIf { it.isNotBlank() } ?: t.notes,
+                createdAt = own?.createdAt ?: now(),
             ),
         )
     }
