@@ -51,7 +51,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -446,7 +445,3 @@ fun ConfirmDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )
 }
-
-/** State boolean dialog konfirmasi yang bertahan saat rotasi. */
-@Composable
-fun rememberFlag(): androidx.compose.runtime.MutableState<Boolean> = rememberSaveable { mutableStateOf(false) }

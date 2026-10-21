@@ -1,0 +1,141 @@
+name: Build AutoCare APK
+
+on:
+  push:
+    paths:
+      - "apps/autocare/**"
+      - ".github/workflows/autocare-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autocare-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/autocare
+
+jobs:
+  # 1. Unit test (reminder, biaya, backup) + build APK release
+  build:
+    runs-on: ubuntu-24.04  # dipin agar tidak ikut migrasi otomatis ke Ubuntu 26
+    env:
+      # Opsional: isi secrets ini untuk menandatangani APK dengan kunci rilis sendiri
+      KEYSTORE_BASE64: ${{ secrets.AUTOCARE_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Siapkan keystore rilis (opsional)
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "AUTOCARE_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo "AUTOCARE_KEYSTORE_PASSWORD=${{ secrets.AUTOCARE_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "AUTOCARE_KEY_ALIAS=${{ secrets.AUTOCARE_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "AUTOCARE_KEY_PASSWORD=${{ secrets.AUTOCARE_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      - name: Unit test & build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/AutoCare-v1.0.0-build${GITHUB_RUN_NUMBER}.apk"
+          ls -la dist
+
+      - name: Upload hasil unit test
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-results
+          path: apps/autocare/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AutoCare-apk
+          path: apps/autocare/dist/*.apk
+
+      # Skema Room hasil build (untuk dikomit & dipakai uji migrasi versi berikutnya)
+      - name: Upload skema database
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: room-schemas
+          path: apps/autocare/app/schemas/
+          if-no-files-found: ignore
+
+  # 2. Instrumented test di emulator: Android 8.0 (minimum) & Android 14
+  device-tests:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 34]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Aktifkan KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Jalankan instrumented test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: apps/autocare
+          script: chmod +x gradlew && ./gradlew connectedDebugAndroidTest --no-daemon
+
+      - name: Upload hasil instrumented test
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-test-results-api${{ matrix.api-level }}
+          path: apps/autocare/app/build/reports/androidTests/
+          if-no-files-found: ignore
+
+  # 3. Rilis hanya jika semua test lulus, dari branch main atau dijalankan manual
+  release:
+    needs: [build, device-tests]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: AutoCare-apk
+          path: dist
+
+      - name: Publikasikan ke GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: autocare-v1.0.0-build${{ github.run_number }}
+          name: AutoCare v1.0.0 (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          body_path: apps/autocare/RELEASE_NOTES.md
+          files: dist/*.apk
