@@ -18,7 +18,7 @@ import id.abati.autocare.domain.reminderInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -35,7 +35,9 @@ import java.time.LocalDate
 class RepositoryDeviceTest {
     private lateinit var db: AppDatabase
     private lateinit var repo: Repository
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // Scope untuk StateFlow repository; ditunggu selesai sebelum database ditutup
+    private val scopeJob = SupervisorJob()
+    private val scope = CoroutineScope(scopeJob + Dispatchers.Default)
     private val deleted = mutableListOf<String>()
 
     private fun day(s: String) = LocalDate.parse(s).toEpochDay()
@@ -51,8 +53,8 @@ class RepositoryDeviceTest {
     }
 
     @After
-    fun tearDown() {
-        scope.cancel()
+    fun tearDown() = runBlocking {
+        scopeJob.cancelAndJoin() // hentikan observasi flow Room dulu agar tidak query ke DB yang sudah ditutup
         db.close()
     }
 
